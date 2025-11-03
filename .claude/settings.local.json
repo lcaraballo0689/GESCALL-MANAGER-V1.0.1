@@ -15,7 +15,10 @@
       "Bash(del nul 2)",
       "Bash(nul)",
       "Bash(findstr:*)",
-      "Bash(git config:*)"
+      "Bash(git config:*)",
+      "Bash(git commit:*)",
+      "Bash(robocopy:*)",
+      "Bash(powershell -Command:*)"
     ],
     "deny": [],
     "ask": []

@@ -44,8 +44,5 @@ coverage
 # Misc
 *.tsbuildinfo
 
-# Backend (separate repo)
-server/
-
 # Windows problematic files
 nul
