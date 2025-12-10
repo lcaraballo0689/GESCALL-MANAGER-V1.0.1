@@ -61,7 +61,10 @@ export function UploadWizardContent({
     description: "",
   });
 
-  const [fileData, setFileData] = useState<{ file: File | null; isDragging: boolean }>({
+  const [fileData, setFileData] = useState<{
+    file: File | null;
+    isDragging: boolean;
+  }>({
     file: null,
     isDragging: false,
   });
@@ -176,19 +179,16 @@ export function UploadWizardContent({
   }, []);
 
   const parseCSV = (text: string): any[] => {
-    const lines = text.split('\n').filter(line => line.trim());
+    const lines = text.split(n).filter(line => line.trim());
     if (lines.length === 0) return [];
 
-    const headers = lines[0].split(',').map(h => h.trim());
-    const data: any[] = [];
+          const headers = lines[0].split(',').map(h => h.trim());    const data: any[] = [];
 
     for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(',');
-      if (values.length === headers.length) {
+              const values = lines[i].split(',');      if (values.length === headers.length) {
         const row: any = {};
         headers.forEach((header, index) => {
-          row[header] = values[index]?.trim() || '';
-        });
+                      row[header] = values[index]?.trim() || '';        });
         data.push(row);
       }
     }
@@ -217,12 +217,11 @@ export function UploadWizardContent({
         list_name: newListData.name,
         campaign_id: campaignId,
         list_description: newListData.description,
-        active: 'Y',
+        active: Y,
       });
 
       if (!createResult.success) {
-        throw new Error("Error al crear la lista: " + (createResult.error || 'Error desconocido'));
-      }
+                  throw new Error("Error al crear la lista: " + (createResult.error || 'Error desconocido'));      }
 
       const targetListId = newListData.listId; // Always use newListData.listId
       toast.success("Lista creada exitosamente");
@@ -243,21 +242,19 @@ export function UploadWizardContent({
 
       return new Promise<void>((resolve, reject) => {
         // Listen for progress updates
-        socket.on('upload:leads:progress', (progress: any) => {
-          setRecordsProcessed(progress.processed);
+                  socket.on('upload:leads:progress', (progress: any) => {          setRecordsProcessed(progress.processed);
           setUploadProgress(progress.percentage);
         });
 
         // Listen for completion
-        socket.on('upload:leads:complete', (result: any) => {
-          const endTime = Date.now();
+                  socket.on('upload:leads:complete', (result: any) => {          const endTime = Date.now();
           const duration = ((endTime - startTime) / 1000).toFixed(1);
 
           setIsUploading(false);
 
           // Clean up socket listeners
-          socket.off('upload:leads:progress');
-          socket.off('upload:leads:complete');
+                      socket.off('upload:leads:progress');
+            socket.off('upload:leads:complete');
 
           // Reset form
           setCurrentStep(2); // Start from the first relevant step for a new upload
@@ -294,8 +291,7 @@ export function UploadWizardContent({
         });
 
         // Start upload
-        socket.emit('upload:leads:start', {
-          leads,
+                  socket.emit('upload:leads:start', {          leads,
           list_id: targetListId,
           campaign_id: campaignId,
         });
@@ -560,4 +556,156 @@ export function UploadWizardContent({
                         {fileData.file.name}
                       </p>
                       <p className="text-slate-500 text-sm">
-                        {(fileData.file.size / 1024).toFixed(1)}{
+                        {(fileData.file.size / 1024).toFixed(1)} KB
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() =>
+                      setFileData({ ...fileData, file: null })
+                    }
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {fileData.file && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                <div className="flex items-center gap-2 text-green-800">
+                  <CheckCircle2 className="w-5 h-5" />
+                  <span>Archivo listo para procesar</span>
+                </div>
+              </div>
+            )}
+
+            <div className="bg-slate-100 rounded-lg p-4">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <span className="text-slate-500">Lista:</span>{" "}
+                  <span className="text-slate-900">
+                    {newListData.name} {/* Simplified display */}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500">
+                    Campaña:
+                  </span>{" "}
+                  <span className="text-slate-900">
+                    {campaignName}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="flex items-center justify-between pt-4 border-t">
+        {currentStep === 2 ? (
+          <Button
+            variant="ghost"
+            onClick={onCancel}
+            className="gap-2"
+          >
+            <X className="w-4 h-4" />
+            Cancelar
+          </Button>
+        ) : (
+          <Button
+            variant="ghost"
+            onClick={handleBack}
+            className="gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Atrás
+          </Button>
+        )}
+
+        <div className="flex gap-3">
+          {currentStep < 4 ? (
+            <Button
+              onClick={handleNext}
+              className="gap-2 bg-slate-900 hover:bg-slate-800"
+            >
+              Siguiente
+              <ArrowRight className="w-4 h-4" />
+            </Button>
+          ) : (
+            <Button
+              onClick={handleFinish}
+              className="gap-2 bg-slate-900 hover:bg-slate-800"
+              disabled={!fileData.file}
+            >
+              <Upload className="w-4 h-4" />
+              Cargar Leads
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Loading Overlay */}
+      {isUploading && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center">
+          <Card className="w-full max-w-md mx-4">
+            <CardContent className="p-8">
+              <div className="space-y-6">
+                {/* Header */}
+                <div className="text-center">
+                  <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
+                    <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+                  </div>
+                  <h3 className="text-slate-900 mb-2">
+                    Procesando Leads
+                  </h3>
+                  <p className="text-slate-600 text-sm">
+                    Por favor espera mientras procesamos tu
+                    archivo
+                  </p>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="space-y-3">
+                  <Progress
+                    value={uploadProgress}
+                    className="h-3"
+                  />
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-600">
+                      {recordsProcessed} de {totalRecords} registros
+                    </span>
+                    <span className="text-slate-900">
+                      {Math.round(uploadProgress)}%
+                    </span>
+                  </div>
+                </div>
+
+                {/* Info */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                    <div className="text-sm text-blue-900">
+                      <p className="mb-1">Validando datos...</p>
+                      <ul className="space-y-1 text-blue-700">
+                        <li>
+                          ✓ Verificando formato de teléfonos
+                        </li>
+                        <li>✓ Validando campos obligatorios</li>
+                        <li>✓ Eliminando duplicados</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </div>
+  );
+}
+
