@@ -62,7 +62,10 @@ export function AudioManager() {
 
     // 1. Filter files based on user permissions (Allowed Campaigns)
     const accessibleFiles = useMemo(() => {
-        if (campaigns.length === 0) return []; // If no campaigns, no access (or logic to show empty)
+        // Admins (Level >= 9) see all files
+        if (userLevel >= 9) return audioFiles;
+
+        if (campaigns.length === 0) return []; // If no campaigns, no access
 
         const allowedFilenames = new Set(
             campaigns.map(c => `gc_${c.id.toLowerCase().replace(/[^a-z0-9]/g, '')}.wav`)
