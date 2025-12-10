@@ -424,7 +424,7 @@ export function Dashboard({ username }: DashboardProps) {
       id: "campaigns-summary",
       name: "Resumen de Campañas",
       description: "Vista consolidada con métricas de todas tus campañas",
-      category: "analytics" as const,
+      category: "chart" as const,
       isPaid: false,
       icon: BarChart3,
       defaultSize: { w: 6, h: 4 },
@@ -967,24 +967,7 @@ export function Dashboard({ username }: DashboardProps) {
             </div>
           </div>
           <div className="flex items-center gap-3 flex-shrink-0">
-            {username === "desarrollo" && (
-              <Badge 
-                variant="outline" 
-                className="cursor-pointer hover:bg-slate-100 transition-colors duration-200 ease-out"
-                onClick={() => {
-                  console.log("=== DEBUG INFO ===");
-                  console.log("All Widgets:", allWidgets);
-                  console.log("Widget States:", widgets);
-                  console.log("Enabled Widgets:", enabledWidgets);
-                  console.log("Layouts:", layouts);
-                  console.log("Active Layout:", activeLayout);
-                  toast.info("Debug info logged to console");
-                }}
-              >
-                🐛 Debug
-              </Badge>
-            )}
-            <UserGreeting username={username} />
+                        <UserGreeting username={username} />
           </div>
         </div>
 
