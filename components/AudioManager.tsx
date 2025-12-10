@@ -60,10 +60,9 @@ export function AudioManager() {
     const campaigns = useAuthStore(state => state.getCampaigns());
     const userLevel = useAuthStore(state => state.getUserLevel());
 
-    // 1. Filter files based on user permissions (Allowed Campaigns)
     const accessibleFiles = useMemo(() => {
-        // Admins (Level >= 9) see all files
-        if (userLevel >= 9) return audioFiles;
+        // Strict filtering: ONLY show files that match the user's allowed campaigns.
+        // Even admins will only see audios for campaigns they have access to.
 
         if (campaigns.length === 0) return []; // If no campaigns, no access
 
