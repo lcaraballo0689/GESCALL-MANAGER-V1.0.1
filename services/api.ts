@@ -222,6 +222,9 @@ class ApiService {
   async getAudioInfo(filename: string) {
     return this.request(`/audio/${encodeURIComponent(filename)}/info`);
   }
+  getAudioStreamUrl(filename: string): string {
+    return `${this.getApiUrl()}/audio/${filename}/stream`;
+  }
 }
 
 export default new ApiService();

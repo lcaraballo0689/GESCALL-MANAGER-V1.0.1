@@ -173,7 +173,7 @@ export function AudioManager() {
             return;
         }
 
-        const streamUrl = `${api.getApiUrl()}/audio/${filename}/stream`;
+        const streamUrl = api.getAudioStreamUrl(filename);
 
         if (audioRef.current) {
             audioRef.current.src = streamUrl;
