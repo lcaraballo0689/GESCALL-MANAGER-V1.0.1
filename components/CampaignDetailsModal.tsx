@@ -147,6 +147,10 @@ export function CampaignDetailsModal({
   const [showUploadWizard, setShowUploadWizard] =
     useState(false);
 
+  // Lists state
+  const [campaignLists, setCampaignLists] = useState<any[]>([]);
+  const [loadingLists, setLoadingLists] = useState(false);
+
   // Helper function to get all dates between start and end
   const getDatesBetween = (start: Date, end: Date): Date[] => {
     const dates: Date[] = [];
@@ -284,22 +288,28 @@ export function CampaignDetailsModal({
     }
   };
 
-  // Mock data para listas
-  const mockLists = [
-    {
-      id: 1,
-      name: "Lista Principal",
-      leads: 5000,
-      active: true,
-    },
-    {
-      id: 2,
-      name: "Leads Prioritarios",
-      leads: 1200,
-      active: true,
-    },
-    { id: 3, name: "Recontactos", leads: 800, active: false },
-  ];
+  // Function to fetch campaign lists
+  const fetchCampaignLists = async () => {
+    setLoadingLists(true);
+    try {
+      console.log(`[CampaignDetailsModal] Fetching lists for campaign ${campaign.id}`);
+      const response = await api.getCampaignLists(campaign.id);
+
+      if (response.success && response.data) {
+        console.log(`[CampaignDetailsModal] Received ${response.data.length} lists`);
+        setCampaignLists(response.data);
+      } else {
+        console.warn("[CampaignDetailsModal] No lists data received");
+        setCampaignLists([]);
+      }
+    } catch (err) {
+      console.error("[CampaignDetailsModal] Error fetching campaign lists:", err);
+      toast.error("Error al cargar las listas de la campaña");
+      setCampaignLists([]);
+    } finally {
+      setLoadingLists(false);
+    }
+  };
 
   // Filter dial log records for reports
   const filteredRecords = dialLogData.filter((record) => {
@@ -322,6 +332,13 @@ export function CampaignDetailsModal({
   useEffect(() => {
     setDisplayedRecords(100);
   }, [searchTerm, statusFilter, listFilter]);
+
+  // Fetch lists when modal opens or tab changes to lists
+  useEffect(() => {
+    if (isOpen && activeTab === "lists") {
+      fetchCampaignLists();
+    }
+  }, [isOpen, activeTab, campaign.id]);
 
   // Handle scroll event for infinite loading
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -415,7 +432,8 @@ export function CampaignDetailsModal({
 
   const handleUploadSuccess = () => {
     setShowUploadWizard(false);
-    // TODO: Refetch lists from API
+    // Refetch lists from API
+    fetchCampaignLists();
     toast.success(
       "Lista cargada exitosamente. Actualizando...",
     );
@@ -738,6 +756,7 @@ export function CampaignDetailsModal({
                     <CardContent className="p-6">
                       <UploadWizardContent
                         campaignName={campaign.name}
+                        campaignId={campaign.id}
                         onCancel={handleUploadCancel}
                         onSuccess={handleUploadSuccess}
                       />
@@ -769,48 +788,75 @@ export function CampaignDetailsModal({
                       </div>
                     </CardHeader>
                     <CardContent>
-                      <div className="space-y-3">
-                        {mockLists.map((list) => (
-                          <div
-                            key={list.id}
-                            className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 transition-colors"
-                          >
-                            <div className="flex items-center gap-4">
-                              <div className="p-3 bg-purple-100 rounded-lg">
-                                <List className="w-5 h-5 text-purple-600" />
-                              </div>
-                              <div>
-                                <h4 className="text-slate-900">
-                                  {list.name}
-                                </h4>
-                                <p className="text-slate-500">
-                                  {list.leads.toLocaleString()}{" "}
-                                  leads
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <Badge
-                                variant={
-                                  list.active
-                                    ? "default"
-                                    : "secondary"
-                                }
-                              >
-                                {list.active
-                                  ? "Activa"
-                                  : "Inactiva"}
-                              </Badge>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                              >
-                                Ver Detalles
-                              </Button>
-                            </div>
+                      {loadingLists ? (
+                        <div className="flex justify-center items-center py-12">
+                          <div className="text-center">
+                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+                            <p className="text-slate-500">Cargando listas...</p>
                           </div>
-                        ))}
-                      </div>
+                        </div>
+                      ) : campaignLists.length === 0 ? (
+                        <div className="text-center py-12">
+                          <List className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                          <p className="text-slate-500">No hay listas asociadas a esta campaña</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {campaignLists.map((list) => (
+                            <div
+                              key={list.list_id}
+                              className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 transition-colors"
+                            >
+                              <div className="flex items-center gap-4">
+                                <div className="p-3 bg-purple-100 rounded-lg">
+                                  <List className="w-5 h-5 text-purple-600" />
+                                </div>
+                                <div>
+                                  <h4 className="text-slate-900 font-medium">
+                                    {list.list_name}
+                                  </h4>
+                                  <p className="text-slate-500 text-sm">
+                                    {list.total_leads?.toLocaleString() || 0}{" "}
+                                    leads total
+                                  </p>
+                                  {list.list_description && (
+                                    <p className="text-slate-400 text-xs mt-1">
+                                      {list.list_description}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <div className="text-right mr-4">
+                                  <div className="text-xs text-slate-500">
+                                    Nuevos: <span className="font-medium text-slate-900">{list.leads_new?.toLocaleString() || 0}</span>
+                                  </div>
+                                  <div className="text-xs text-slate-500">
+                                    Contactados: <span className="font-medium text-slate-900">{list.leads_contacted?.toLocaleString() || 0}</span>
+                                  </div>
+                                </div>
+                                <Badge
+                                  variant={
+                                    list.active === "Y"
+                                      ? "default"
+                                      : "secondary"
+                                  }
+                                >
+                                  {list.active === "Y"
+                                    ? "Activa"
+                                    : "Inactiva"}
+                                </Badge>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                >
+                                  Ver Detalles
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 )}

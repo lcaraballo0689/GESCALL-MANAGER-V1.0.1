@@ -50,9 +50,8 @@ interface CampaignCardProps {
 export function CampaignCard({ campaign }: CampaignCardProps) {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
-  // Check if data is still loading
-  const isLoading = campaign.dialingMethod === 'Cargando...' ||
-    (campaign.totalLeads === 0 && campaign.contactedLeads === 0 && campaign.successRate === 0);
+  // Check if data is still loading (only based on explicit loading indicator)
+  const isLoading = campaign.dialingMethod === 'Cargando...';
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -214,9 +213,11 @@ export function CampaignCard({ campaign }: CampaignCardProps) {
           <div>
             <div className="flex justify-between mb-2">
               <span className="text-slate-600 flex items-center gap-2">
-                Progreso de contacto
+                Progreso
                 {isLoading ? (
                   <Loader2 className="w-3 h-3 animate-spin text-slate-400" />
+                ) : campaign.totalLeads === 0 ? (
+                  <span className="text-amber-600 font-medium">(Sin listas activas)</span>
                 ) : (
                   <span>({progressPercentage.toFixed(2)}%)</span>
                 )}
@@ -229,7 +230,7 @@ export function CampaignCard({ campaign }: CampaignCardProps) {
                   </span>
                 ) : (
                   <>
-                    {campaign.contactedLeads.toLocaleString()} /{" "}
+                    {campaign.contactedLeads.toLocaleString()} de {" "}
                     {campaign.totalLeads.toLocaleString()} leads
                   </>
                 )}

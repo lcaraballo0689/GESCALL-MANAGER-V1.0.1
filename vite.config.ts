@@ -21,6 +21,9 @@ export default defineConfig({
     ],
   },
   server: {
+    allowedHosts: [
+      'gescall.luiscaraballo.pro'
+    ],
     port: 5173,
     host: true,
   },

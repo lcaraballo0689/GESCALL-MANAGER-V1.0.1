@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -25,9 +25,12 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "./ui/utils";
+import api from "@/services/api";
+import socket from "@/services/socket";
 
 interface UploadWizardContentProps {
   campaignName: string;
+  campaignId: string;
   onComplete?: () => void;
   onCancel?: () => void;
   onSuccess?: () => void;
@@ -36,40 +39,16 @@ interface UploadWizardContentProps {
 type Step = 1 | 2 | 3 | 4;
 type ListOption = "existing" | "new" | null;
 
-// Mock data para listas existentes
-const existingLists = [
-  {
-    id: "100",
-    name: "Lista General 2025",
-    campaign: "Ventas Q4",
-  },
-  {
-    id: "101",
-    name: "Leads Calificados",
-    campaign: "Retención",
-  },
-  {
-    id: "102",
-    name: "Prospectos Octubre",
-    campaign: "Cobranza",
-  },
-  { id: "103", name: "Base Activa", campaign: "Ventas Q4" },
-];
-
-const campaigns = [
-  "Ventas Q4 2025",
-  "Retención Clientes",
-  "Cobranza",
-  "Prospección",
-  "Seguimiento",
-];
-
 export function UploadWizardContent({
   campaignName,
+  campaignId,
   onComplete,
   onCancel,
   onSuccess,
 }: UploadWizardContentProps) {
+  // Lists state
+  const [campaignLists, setCampaignLists] = useState<any[]>([]);
+  const [loadingLists, setLoadingLists] = useState(false);
   const [currentStep, setCurrentStep] = useState<Step>(1);
   const [listOption, setListOption] =
     useState<ListOption>(null);
@@ -82,7 +61,7 @@ export function UploadWizardContent({
   const [newListData, setNewListData] = useState({
     listId: "",
     name: "",
-    campaign: campaignName,
+    campaign: campaignId,
     description: "",
   });
 
@@ -93,6 +72,26 @@ export function UploadWizardContent({
     file: null,
     isDragging: false,
   });
+
+  // Fetch campaign lists on component mount
+  useEffect(() => {
+    const fetchLists = async () => {
+      setLoadingLists(true);
+      try {
+        const response = await api.getCampaignLists(campaignId);
+        if (response.success && response.data) {
+          setCampaignLists(response.data);
+        }
+      } catch (error) {
+        console.error("Error loading lists:", error);
+        toast.error("Error al cargar las listas");
+      } finally {
+        setLoadingLists(false);
+      }
+    };
+
+    fetchLists();
+  }, [campaignId]);
 
   const handleNext = () => {
     if (currentStep === 1) {
@@ -213,24 +212,25 @@ export function UploadWizardContent({
     setFileData((prev) => ({ ...prev, isDragging: false }));
   }, []);
 
-  const simulateUpload = (total: number) => {
-    return new Promise<void>((resolve) => {
-      let progress = 0;
-      const interval = setInterval(() => {
-        progress += Math.random() * 15;
-        if (progress >= 100) {
-          progress = 100;
-          clearInterval(interval);
-          setTimeout(() => resolve(), 500);
-        }
-        setUploadProgress(Math.min(progress, 100));
-        // Actualizar registros procesados proporcionalmente
-        const processed = Math.floor(
-          (Math.min(progress, 100) / 100) * total,
-        );
-        setRecordsProcessed(processed);
-      }, 200);
-    });
+  const parseCSV = (text: string): any[] => {
+    const lines = text.split('\n').filter(line => line.trim());
+    if (lines.length === 0) return [];
+
+    const headers = lines[0].split(',').map(h => h.trim());
+    const data: any[] = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(',');
+      if (values.length === headers.length) {
+        const row: any = {};
+        headers.forEach((header, index) => {
+          row[header] = values[index]?.trim() || '';
+        });
+        data.push(row);
+      }
+    }
+
+    return data;
   };
 
   const handleFinish = async () => {
@@ -239,66 +239,113 @@ export function UploadWizardContent({
       return;
     }
 
-    // Generar número aleatorio de registros
-    const total = Math.floor(Math.random() * 500) + 100;
-    setTotalRecords(total);
-    setRecordsProcessed(0);
-    setUploadProgress(0);
     setIsUploading(true);
+    setUploadProgress(0);
+    setRecordsProcessed(0);
 
     const startTime = Date.now();
 
     try {
-      await simulateUpload(total);
+      // Step 1: Create list if needed
+      let targetListId = selectedList;
 
-      const endTime = Date.now();
-      const duration = ((endTime - startTime) / 1000).toFixed(
-        1,
-      );
-      const errorsFound = Math.floor(Math.random() * 10);
+      if (listOption === "new") {
+        toast.info("Creando nueva lista...");
 
-      setIsUploading(false);
+        const createResult = await api.createList({
+          list_id: newListData.listId,
+          list_name: newListData.name,
+          campaign_id: campaignId,
+          list_description: newListData.description,
+          active: 'Y',
+        });
 
-      // Reset form
-      setCurrentStep(1);
-      setListOption(null);
-      setSelectedList("");
-      setNewListData({
-        listId: "",
-        name: "",
-        campaign: campaignName,
-        description: "",
+        if (!createResult.success) {
+          throw new Error("Error al crear la lista: " + (createResult.error || 'Error desconocido'));
+        }
+
+        targetListId = newListData.listId;
+        toast.success("Lista creada exitosamente");
+      }
+
+      // Step 2: Read and parse CSV
+      const text = await fileData.file.text();
+      const leads = parseCSV(text);
+
+      if (leads.length === 0) {
+        throw new Error("El archivo CSV está vacío o tiene un formato inválido");
+      }
+
+      setTotalRecords(leads.length);
+      toast.info(`Procesando ${leads.length} registros...`);
+
+      // Step 3: Connect to Socket.IO and upload leads
+      await socket.connect();
+
+      return new Promise<void>((resolve, reject) => {
+        // Listen for progress updates
+        socket.on('upload:leads:progress', (progress: any) => {
+          setRecordsProcessed(progress.processed);
+          setUploadProgress(progress.percentage);
+        });
+
+        // Listen for completion
+        socket.on('upload:leads:complete', (result: any) => {
+          const endTime = Date.now();
+          const duration = ((endTime - startTime) / 1000).toFixed(1);
+
+          setIsUploading(false);
+
+          // Clean up socket listeners
+          socket.off('upload:leads:progress');
+          socket.off('upload:leads:complete');
+
+          // Reset form
+          setCurrentStep(1);
+          setListOption(null);
+          setSelectedList("");
+          setNewListData({
+            listId: "",
+            name: "",
+            campaign: campaignId,
+            description: "",
+          });
+          setFileData({ file: null, isDragging: false });
+          setUploadProgress(0);
+          setRecordsProcessed(0);
+          setTotalRecords(0);
+
+          toast.success(
+            <div>
+              <div className="mb-1">¡Carga completada exitosamente!</div>
+              <div className="text-slate-600">
+                <div>• {result.successful} registros exitosos</div>
+                {result.errors > 0 && (
+                  <div>• {result.errors} errores encontrados</div>
+                )}
+                <div>• Tiempo: {duration}s</div>
+              </div>
+            </div>,
+            { duration: 5000 },
+          );
+
+          if (onComplete) onComplete();
+          if (onSuccess) onSuccess();
+
+          resolve();
+        });
+
+        // Start upload
+        socket.emit('upload:leads:start', {
+          leads,
+          list_id: targetListId,
+          campaign_id: campaignId,
+        });
       });
-      setFileData({ file: null, isDragging: false });
-      setUploadProgress(0);
-      setRecordsProcessed(0);
-      setTotalRecords(0);
-
-      toast.success(
-        <div>
-          <div className="mb-1">
-            ¡Carga completada exitosamente!
-          </div>
-          <div className="text-slate-600">
-            <div>• {total} registros procesados</div>
-            {errorsFound > 0 && (
-              <div>• {errorsFound} errores encontrados</div>
-            )}
-            <div>• Tiempo: {duration}s</div>
-          </div>
-        </div>,
-        { duration: 5000 },
-      );
-
-      if (onComplete) {
-        onComplete();
-      }
-      if (onSuccess) {
-        onSuccess();
-      }
     } catch (error) {
       setIsUploading(false);
-      toast.error("Error al procesar el archivo");
+      console.error("Upload error:", error);
+      toast.error(error instanceof Error ? error.message : "Error al procesar el archivo");
     }
   };
 
@@ -475,21 +522,32 @@ export function UploadWizardContent({
                 >
                   Seleccionar Lista *
                 </Label>
-                <Select
-                  value={selectedList}
-                  onValueChange={setSelectedList}
-                >
-                  <SelectTrigger className="bg-slate-50">
-                    <SelectValue placeholder="Elige una lista" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {existingLists.map((list) => (
-                      <SelectItem key={list.id} value={list.id}>
-                        {list.name} (ID: {list.id})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {loadingLists ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+                    <span className="ml-2 text-slate-500">Cargando listas...</span>
+                  </div>
+                ) : campaignLists.length === 0 ? (
+                  <div className="text-center py-8 text-slate-500">
+                    No hay listas disponibles para esta campaña
+                  </div>
+                ) : (
+                  <Select
+                    value={selectedList}
+                    onValueChange={setSelectedList}
+                  >
+                    <SelectTrigger className="bg-slate-50">
+                      <SelectValue placeholder="Elige una lista" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {campaignLists.map((list) => (
+                        <SelectItem key={list.list_id} value={list.list_id.toString()}>
+                          {list.list_name} (ID: {list.list_id}) - {list.total_leads || 0} leads
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
             ) : (
               <div className="space-y-4 pt-2">
@@ -503,7 +561,8 @@ export function UploadWizardContent({
                     </Label>
                     <Input
                       id="listId"
-                      placeholder="104"
+                      placeholder="1000100"
+                      type="number"
                       value={newListData.listId}
                       onChange={(e) =>
                         setNewListData({
@@ -523,7 +582,7 @@ export function UploadWizardContent({
                     </Label>
                     <Input
                       id="listName"
-                      placeholder="Lista Octubre"
+                      placeholder="Mi Lista Octubre"
                       value={newListData.name}
                       onChange={(e) =>
                         setNewListData({
@@ -537,35 +596,14 @@ export function UploadWizardContent({
                 </div>
 
                 <div>
-                  <Label
-                    htmlFor="campaign"
-                    className="mb-2 block"
-                  >
+                  <Label className="mb-2 block">
                     Campaña
                   </Label>
-                  <Select
-                    value={newListData.campaign}
-                    onValueChange={(value) =>
-                      setNewListData({
-                        ...newListData,
-                        campaign: value,
-                      })
-                    }
-                  >
-                    <SelectTrigger className="bg-slate-50">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {campaigns.map((campaign) => (
-                        <SelectItem
-                          key={campaign}
-                          value={campaign}
-                        >
-                          {campaign}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Input
+                    value={campaignName}
+                    disabled
+                    className="bg-slate-100"
+                  />
                 </div>
 
                 <div>
@@ -720,9 +758,9 @@ export function UploadWizardContent({
                   <span className="text-slate-500">Lista:</span>{" "}
                   <span className="text-slate-900">
                     {listOption === "existing"
-                      ? existingLists.find(
-                          (l) => l.id === selectedList,
-                        )?.name
+                      ? campaignLists.find(
+                          (l) => l.list_id.toString() === selectedList,
+                        )?.list_name
                       : newListData.name}
                   </span>
                 </div>
