@@ -38,15 +38,6 @@ interface UploadWizardProps {
 }
 
 type Step = 1 | 2 | 3;
-type ListOption = 'existing' | 'new';
-
-// Mock data para listas existentes
-const existingLists = [
-  { id: '100', name: 'Lista General 2025', campaign: 'Ventas Q4' },
-  { id: '101', name: 'Leads Calificados', campaign: 'Retención' },
-  { id: '102', name: 'Prospectos Octubre', campaign: 'Cobranza' },
-  { id: '103', name: 'Base Activa', campaign: 'Ventas Q4' },
-];
 
 const campaigns = [
   'Ventas Q4 2025',
@@ -58,8 +49,7 @@ const campaigns = [
 
 export function UploadWizard({ isOpen, onClose, campaignName }: UploadWizardProps) {
   const [currentStep, setCurrentStep] = useState<Step>(1);
-  const [listOption, setListOption] = useState<ListOption>('new');
-  const [selectedList, setSelectedList] = useState('');
+  const listOption = 'new'; // Siempre nueva lista
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   
@@ -80,15 +70,9 @@ export function UploadWizard({ isOpen, onClose, campaignName }: UploadWizardProp
 
   const handleNext = () => {
     if (currentStep === 1) {
-      if (listOption === 'existing' && !selectedList) {
-        toast.error('Selecciona una lista existente');
+      if (!newListData.listId || !newListData.name) {
+        toast.error('Completa los campos obligatorios');
         return;
-      }
-      if (listOption === 'new') {
-        if (!newListData.listId || !newListData.name) {
-          toast.error('Completa los campos obligatorios');
-          return;
-        }
       }
       setCurrentStep(2);
     } else if (currentStep === 2) {
@@ -243,10 +227,8 @@ export function UploadWizard({ isOpen, onClose, campaignName }: UploadWizardProp
 
   const handleClose = () => {
     if (isProcessing) return;
-    
+
     setCurrentStep(1);
-    setListOption('new');
-    setSelectedList('');
     setNewListData({
       listId: '',
       name: '',
@@ -343,96 +325,20 @@ export function UploadWizard({ isOpen, onClose, campaignName }: UploadWizardProp
               {/* PASO 1: Configurar Lista */}
               {currentStep === 1 && (
                 <div className="space-y-4">
-                  {/* Options */}
-                  <div className="space-y-3">
-                    <Card
-                      className={cn(
-                        'cursor-pointer transition-all border-2',
-                        listOption === 'existing'
-                          ? 'border-blue-500 bg-blue-50/50'
-                          : 'border-slate-200 hover:border-slate-300'
-                      )}
-                      onClick={() => setListOption('existing')}
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex items-start gap-3">
-                          <div
-                            className={cn(
-                              'w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5',
-                              listOption === 'existing'
-                                ? 'border-blue-600'
-                                : 'border-slate-300'
-                            )}
-                          >
-                            {listOption === 'existing' && (
-                              <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />
-                            )}
-                          </div>
-                          <div className="flex-1">
-                            <h4 className="text-slate-900 mb-1">Lista Existente</h4>
-                            <p className="text-slate-500 text-sm">
-                              Agregar leads a una lista del sistema
-                            </p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    <Card
-                      className={cn(
-                        'cursor-pointer transition-all border-2',
-                        listOption === 'new'
-                          ? 'border-blue-500 bg-blue-50/50'
-                          : 'border-slate-200 hover:border-slate-300'
-                      )}
-                      onClick={() => setListOption('new')}
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex items-start gap-3">
-                          <div
-                            className={cn(
-                              'w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5',
-                              listOption === 'new'
-                                ? 'border-blue-600'
-                                : 'border-slate-300'
-                            )}
-                          >
-                            {listOption === 'new' && (
-                              <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />
-                            )}
-                          </div>
-                          <div className="flex-1">
-                            <h4 className="text-slate-900 mb-1">Nueva Lista</h4>
-                            <p className="text-slate-500 text-sm">
-                              Crear una nueva lista
-                            </p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                    <div className="flex gap-3">
+                      <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="text-blue-900 mb-1">Nueva Lista</h4>
+                        <p className="text-blue-700 text-sm">
+                          Completa los datos para crear una nueva lista de leads
+                        </p>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Form Fields */}
-                  {listOption === 'existing' ? (
-                    <div className="pt-2">
-                      <Label htmlFor="existingList" className="mb-2 block">
-                        Seleccionar Lista *
-                      </Label>
-                      <Select value={selectedList} onValueChange={setSelectedList}>
-                        <SelectTrigger className="bg-slate-50">
-                          <SelectValue placeholder="Elige una lista" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {existingLists.map((list) => (
-                            <SelectItem key={list.id} value={list.id}>
-                              {list.name} (ID: {list.id})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  ) : (
-                    <div className="space-y-4 pt-2">
+                  <div className="space-y-4 pt-2">
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <Label htmlFor="listId" className="mb-2 block">
@@ -503,7 +409,7 @@ export function UploadWizard({ isOpen, onClose, campaignName }: UploadWizardProp
                         />
                       </div>
                     </div>
-                  )}
+                  </div>
                 </div>
               )}
 
@@ -624,11 +530,7 @@ export function UploadWizard({ isOpen, onClose, campaignName }: UploadWizardProp
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <div>
                         <span className="text-slate-500">Lista:</span>{' '}
-                        <span className="text-slate-900">
-                          {listOption === 'existing'
-                            ? existingLists.find((l) => l.id === selectedList)?.name
-                            : newListData.name}
-                        </span>
+                        <span className="text-slate-900">{newListData.name}</span>
                       </div>
                       <div>
                         <span className="text-slate-500">Campaña:</span>{' '}

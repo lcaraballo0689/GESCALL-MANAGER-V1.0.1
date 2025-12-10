@@ -29,10 +29,11 @@ class VicibrokerService {
       if (typeof window !== 'undefined' && (window as any).VITE_VICIBROKER_URL) {
         return (window as any).VITE_VICIBROKER_URL;
       }
-    } catch {}
+    } catch { }
 
-    // Default Vicibroker URL
-    return 'http://209.38.233.46:8095';
+    // Default Vicibroker URL - use relative path to go through HTTPS proxy
+    // This avoids Mixed Content issues when page is served over HTTPS
+    return '/vicibroker';
   }
 
   connect() {

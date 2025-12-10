@@ -358,14 +358,14 @@ VICIDIAL_SOURCE=admin_panel
 
 # Server
 PORT=3001
-CORS_ORIGIN=http://localhost:5173
+CORS_ORIGIN=http://164.92.67.176:5173
 ```
 
 ### Frontend (.env)
 
 ```env
-VITE_API_URL=http://localhost:3001/api
-VITE_SOCKET_URL=http://localhost:3001
+VITE_API_URL=http://164.92.67.176:3001/api
+VITE_SOCKET_URL=http://164.92.67.176:3001
 ```
 
 ## Testing
@@ -383,7 +383,7 @@ VITE_SOCKET_URL=http://localhost:3001
    npm run dev
    ```
 
-3. Ve a http://localhost:5173
+3. Ve a http://164.92.67.176:5173
 
 4. Ingresa credenciales de Vicidial válidas
 

@@ -14,23 +14,31 @@ interface StickyNoteWidgetProps {
 
 type WidgetSize = "sm" | "md" | "lg" | "xl";
 
-export function StickyNoteWidget({ 
-  id, 
-  initialNote = "", 
+export function StickyNoteWidget({
+  id,
+  initialNote = "",
   color = "yellow",
-  onSave 
+  onSave
 }: StickyNoteWidgetProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [widgetSize, setWidgetSize] = useState<WidgetSize>("md");
   const [note, setNote] = useState(initialNote);
   const [hasChanges, setHasChanges] = useState(false);
 
+  // Load from localStorage on mount
+  useEffect(() => {
+    const savedNote = localStorage.getItem(`sticky-note-${id}`);
+    if (savedNote !== null) {
+      setNote(savedNote);
+    }
+  }, [id]);
+
   useEffect(() => {
     const updateSize = () => {
       if (containerRef.current) {
         const { offsetWidth, offsetHeight } = containerRef.current;
         const area = offsetWidth * offsetHeight;
-        
+
         if (area < 30000) {
           setWidgetSize("sm");
         } else if (area < 60000) {
@@ -75,6 +83,18 @@ export function StickyNoteWidget({
     setNote(value);
     setHasChanges(true);
   };
+
+  // Auto-save with debounce (save after 1 second of inactivity)
+  useEffect(() => {
+    if (!hasChanges) return;
+
+    const timeoutId = setTimeout(() => {
+      localStorage.setItem(`sticky-note-${id}`, note);
+      setHasChanges(false);
+    }, 1000);
+
+    return () => clearTimeout(timeoutId);
+  }, [note, hasChanges, id]);
 
   // Color configurations
   const colorClasses = {

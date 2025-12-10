@@ -16,10 +16,10 @@ export function UserSession() {
       <div className="flex items-start justify-between">
         <div>
           <h3 className="text-lg font-semibold text-slate-900">
-            {user.full_name || user.user}
+            {user.name || user.id}
           </h3>
           <p className="text-sm text-slate-500">
-            Usuario: {user.user}
+            Usuario: {user.id}
           </p>
           {user.email && (
             <p className="text-sm text-slate-500">

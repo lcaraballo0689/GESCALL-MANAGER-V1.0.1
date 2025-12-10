@@ -24,8 +24,8 @@ class SocketService {
         return (window as any).VITE_SOCKET_URL;
       }
     } catch {}
-    
-    return 'http://localhost:3001';
+
+    return 'https://gescall.balenthi.com';
   }
 
   connect() {

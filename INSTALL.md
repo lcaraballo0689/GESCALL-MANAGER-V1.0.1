@@ -50,7 +50,7 @@ VICIDIAL_API_PASS=tu_password_api
 VICIDIAL_SOURCE=admin_panel
 
 # Permitir conexión desde el frontend
-CORS_ORIGIN=http://localhost:5173
+CORS_ORIGIN=http://164.92.67.176:5173
 ```
 
 ### 3️⃣ Ejecutar la Aplicación
@@ -80,8 +80,8 @@ chmod +x start.sh
 
 ### 4️⃣ Acceder a la Aplicación
 
-- **Frontend:** http://localhost:5173
-- **Backend API:** http://localhost:3001
+- **Frontend:** http://164.92.67.176:5173
+- **Backend API:** http://164.92.67.176:3001
 
 **Credenciales de acceso:**
 
@@ -92,7 +92,7 @@ chmod +x start.sh
 
 ## ✅ Verificar Instalación
 
-1. Abre http://localhost:5173 en tu navegador
+1. Abre http://164.92.67.176:5173 en tu navegador
 2. Deberías ver la pantalla de login con fondo de montaña nevada
 3. Inicia sesión con `admin` / `admin`
 4. Verás el dashboard con los KPIs

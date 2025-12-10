@@ -69,6 +69,30 @@ export function UploadWizardContent({
     isDragging: false,
   });
 
+  const [loadingListId, setLoadingListId] = useState(true);
+
+  // Auto-fetch next list ID when component mounts
+  useEffect(() => {
+    const fetchNextListId = async () => {
+      try {
+        const response = await api.getNextListId();
+        if (response.success && response.next_id) {
+          setNewListData(prev => ({
+            ...prev,
+            listId: response.next_id.toString(),
+          }));
+        }
+      } catch (error) {
+        console.error("[UploadWizard] Error fetching next list ID:", error);
+        toast.error("Error al obtener el ID de lista");
+      } finally {
+        setLoadingListId(false);
+      }
+    };
+
+    fetchNextListId();
+  }, []);
+
   const handleNext = () => {
     // Since listOption is always "new", we skip the initial validation for listOption presence.
     // Also, step 1 is now effectively skipped by initial state, so we check for currentStep === 2
@@ -94,30 +118,7 @@ export function UploadWizardContent({
   const handleDownloadTemplate = () => {
     const headers = [
       "phone_number",
-      "phone_code",
-      "list_id",
       "vendor_lead_code",
-      "source_id",
-      "title",
-      "first_name",
-      "middle_initial",
-      "last_name",
-      "address1",
-      "address2",
-      "address3",
-      "city",
-      "state",
-      "province",
-      "postal_code",
-      "country_code",
-      "gender",
-      "date_of_birth",
-      "alt_phone",
-      "email",
-      "security_phrase",
-      "comments",
-      "rank",
-      "owner",
     ];
 
     const csvContent = headers.join(",") + "\n";
@@ -179,16 +180,21 @@ export function UploadWizardContent({
   }, []);
 
   const parseCSV = (text: string): any[] => {
-    const lines = text.split(n).filter(line => line.trim());
+    // Handle both Windows (CRLF) and Unix (LF) line endings
+    const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(line => line.trim());
     if (lines.length === 0) return [];
 
-          const headers = lines[0].split(',').map(h => h.trim());    const data: any[] = [];
+    const headers = lines[0].split(',').map(h => h.trim());
+    const data: any[] = [];
 
     for (let i = 1; i < lines.length; i++) {
-              const values = lines[i].split(',');      if (values.length === headers.length) {
+      const values = lines[i].split(',');
+      // Allow rows with fewer columns (use empty string for missing values)
+      if (values.length > 0) {
         const row: any = {};
         headers.forEach((header, index) => {
-                      row[header] = values[index]?.trim() || '';        });
+          row[header] = values[index]?.trim() || '';
+        });
         data.push(row);
       }
     }
@@ -217,11 +223,12 @@ export function UploadWizardContent({
         list_name: newListData.name,
         campaign_id: campaignId,
         list_description: newListData.description,
-        active: Y,
+        active: 'Y',
       });
 
       if (!createResult.success) {
-                  throw new Error("Error al crear la lista: " + (createResult.error || 'Error desconocido'));      }
+        throw new Error("Error al crear la lista: " + (createResult.error || 'Error desconocido'));
+      }
 
       const targetListId = newListData.listId; // Always use newListData.listId
       toast.success("Lista creada exitosamente");
@@ -242,19 +249,21 @@ export function UploadWizardContent({
 
       return new Promise<void>((resolve, reject) => {
         // Listen for progress updates
-                  socket.on('upload:leads:progress', (progress: any) => {          setRecordsProcessed(progress.processed);
+        socket.on('upload:leads:progress', (progress: any) => {
+          setRecordsProcessed(progress.processed);
           setUploadProgress(progress.percentage);
         });
 
         // Listen for completion
-                  socket.on('upload:leads:complete', (result: any) => {          const endTime = Date.now();
+        socket.on('upload:leads:complete', (result: any) => {
+          const endTime = Date.now();
           const duration = ((endTime - startTime) / 1000).toFixed(1);
 
           setIsUploading(false);
 
           // Clean up socket listeners
-                      socket.off('upload:leads:progress');
-            socket.off('upload:leads:complete');
+          socket.off('upload:leads:progress');
+          socket.off('upload:leads:complete');
 
           // Reset form
           setCurrentStep(2); // Start from the first relevant step for a new upload
@@ -291,7 +300,8 @@ export function UploadWizardContent({
         });
 
         // Start upload
-                  socket.emit('upload:leads:start', {          leads,
+        socket.emit('upload:leads:start', {
+          leads,
           list_id: targetListId,
           campaign_id: campaignId,
         });
@@ -389,21 +399,23 @@ export function UploadWizardContent({
                     htmlFor="listId"
                     className="mb-2 block"
                   >
-                    ID Lista *
+                    ID Lista <span className="text-xs text-slate-500">(auto-generado)</span>
                   </Label>
-                  <Input
-                    id="listId"
-                    placeholder="1000100"
-                    type="number"
-                    value={newListData.listId}
-                    onChange={(e) =>
-                      setNewListData({
-                        ...newListData,
-                        listId: e.target.value,
-                      })
-                    }
-                    className="bg-slate-50"
-                  />
+                  <div className="relative">
+                    <Input
+                      id="listId"
+                      placeholder="Cargando..."
+                      type="text"
+                      value={newListData.listId}
+                      readOnly
+                      className="bg-slate-100 cursor-not-allowed"
+                    />
+                    {loadingListId && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <Label
@@ -494,10 +506,8 @@ export function UploadWizardContent({
                     Campos del Template
                   </h4>
                   <p className="text-blue-700 text-sm">
-                    El archivo incluye 25 campos estándar de
-                    Vicidial: phone_number, phone_code,
-                    first_name, last_name, email, address, y
-                    más.
+                    El archivo incluye 2 campos: phone_number y
+                    vendor_lead_code.
                   </p>
                 </div>
               </div>
@@ -505,9 +515,8 @@ export function UploadWizardContent({
 
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
               <p className="text-amber-800 text-sm">
-                <strong>Nota:</strong> Completa los campos
-                phone_number y list_id como mínimo. Los demás
-                campos son opcionales.
+                <strong>Nota:</strong> Ambos campos son requeridos
+                para cargar los leads correctamente.
               </p>
             </div>
           </div>

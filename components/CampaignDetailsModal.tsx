@@ -151,6 +151,14 @@ export function CampaignDetailsModal({
   const [campaignLists, setCampaignLists] = useState<any[]>([]);
   const [loadingLists, setLoadingLists] = useState(false);
 
+  // Selected list leads state
+  const [selectedList, setSelectedList] = useState<any | null>(null);
+  const [listLeads, setListLeads] = useState<any[]>([]);
+  const [loadingLeads, setLoadingLeads] = useState(false);
+  const [leadsTotal, setLeadsTotal] = useState(0);
+  const [leadsOffset, setLeadsOffset] = useState(0);
+  const leadsLimit = 50;
+
   // Helper function to get all dates between start and end
   const getDatesBetween = (start: Date, end: Date): Date[] => {
     const dates: Date[] = [];
@@ -309,6 +317,37 @@ export function CampaignDetailsModal({
     } finally {
       setLoadingLists(false);
     }
+  };
+
+  // Function to fetch leads for a specific list
+  const fetchListLeads = async (list: any, offset = 0) => {
+    console.log("[CampaignDetailsModal] fetchListLeads called with list:", list);
+    setSelectedList(list);
+    setLoadingLeads(true);
+    setLeadsOffset(offset);
+    try {
+      const response = await api.getListLeads(list.list_id.toString(), leadsLimit, offset);
+      if (response.success) {
+        setListLeads(response.data || []);
+        setLeadsTotal(response.total || 0);
+      } else {
+        toast.error("Error al cargar los leads de la lista");
+        setListLeads([]);
+      }
+    } catch (err) {
+      console.error("[CampaignDetailsModal] Error fetching list leads:", err);
+      toast.error("Error al cargar los leads");
+      setListLeads([]);
+    } finally {
+      setLoadingLeads(false);
+    }
+  };
+
+  const closeListLeadsModal = () => {
+    setSelectedList(null);
+    setListLeads([]);
+    setLeadsOffset(0);
+    setLeadsTotal(0);
   };
 
   // Filter dial log records for reports
@@ -763,102 +802,194 @@ export function CampaignDetailsModal({
                     </CardContent>
                   </Card>
                 ) : (
-                  <Card>
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <CardTitle>Listas de Leads</CardTitle>
-                          <CardDescription>
-                            Administra las listas asociadas a
-                            esta campaña
-                          </CardDescription>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            className="gap-2"
-                            onClick={() =>
-                              setShowUploadWizard(true)
-                            }
-                          >
-                            <Upload className="w-4 h-4" />
-                            Cargar Leads
-                          </Button>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      {loadingLists ? (
-                        <div className="flex justify-center items-center py-12">
-                          <div className="text-center">
-                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-                            <p className="text-slate-500">Cargando listas...</p>
+                  <>
+                    <Card>
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <CardTitle>Listas de Leads</CardTitle>
+                            <CardDescription>
+                              Administra las listas asociadas a
+                              esta campaña
+                            </CardDescription>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              className="gap-2"
+                              onClick={() =>
+                                setShowUploadWizard(true)
+                              }
+                            >
+                              <Upload className="w-4 h-4" />
+                              Cargar Leads
+                            </Button>
                           </div>
                         </div>
-                      ) : campaignLists.length === 0 ? (
-                        <div className="text-center py-12">
-                          <List className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                          <p className="text-slate-500">No hay listas asociadas a esta campaña</p>
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          {campaignLists.map((list) => (
-                            <div
-                              key={list.list_id}
-                              className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 transition-colors"
-                            >
-                              <div className="flex items-center gap-4">
-                                <div className="p-3 bg-purple-100 rounded-lg">
-                                  <List className="w-5 h-5 text-purple-600" />
-                                </div>
-                                <div>
-                                  <h4 className="text-slate-900 font-medium">
-                                    {list.list_name}
-                                  </h4>
-                                  <p className="text-slate-500 text-sm">
-                                    {list.total_leads?.toLocaleString() || 0}{" "}
-                                    leads total
-                                  </p>
-                                  {list.list_description && (
-                                    <p className="text-slate-400 text-xs mt-1">
-                                      {list.list_description}
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-3">
-                                <div className="text-right mr-4">
-                                  <div className="text-xs text-slate-500">
-                                    Nuevos: <span className="font-medium text-slate-900">{list.leads_new?.toLocaleString() || 0}</span>
-                                  </div>
-                                  <div className="text-xs text-slate-500">
-                                    Contactados: <span className="font-medium text-slate-900">{list.leads_contacted?.toLocaleString() || 0}</span>
-                                  </div>
-                                </div>
-                                <Badge
-                                  variant={
-                                    list.active === "Y"
-                                      ? "default"
-                                      : "secondary"
-                                  }
-                                >
-                                  {list.active === "Y"
-                                    ? "Activa"
-                                    : "Inactiva"}
-                                </Badge>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                >
-                                  Ver Detalles
-                                </Button>
-                              </div>
+                      </CardHeader>
+                      <CardContent>
+                        {loadingLists ? (
+                          <div className="flex justify-center items-center py-12">
+                            <div className="text-center">
+                              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+                              <p className="text-slate-500">Cargando listas...</p>
                             </div>
-                          ))}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
+                          </div>
+                        ) : campaignLists.length === 0 ? (
+                          <div className="text-center py-12">
+                            <List className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                            <p className="text-slate-500">No hay listas asociadas a esta campaña</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            {campaignLists.map((list) => (
+                              <div
+                                key={list.list_id}
+                                className="border rounded-lg overflow-hidden"
+                              >
+                                {/* List Header */}
+                                <div className="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors">
+                                  <div className="flex items-center gap-4">
+                                    <div className="p-3 bg-purple-100 rounded-lg">
+                                      <List className="w-5 h-5 text-purple-600" />
+                                    </div>
+                                    <div>
+                                      <h4 className="text-slate-900 font-medium">
+                                        {list.list_name}
+                                      </h4>
+                                      <p className="text-slate-500 text-sm">
+                                        {list.total_leads?.toLocaleString() || 0}{" "}
+                                        leads total
+                                      </p>
+                                      {list.list_description && (
+                                        <p className="text-slate-400 text-xs mt-1">
+                                          {list.list_description}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-3">
+                                    <div className="text-right mr-4">
+                                      <div className="text-xs text-slate-500">
+                                        Nuevos: <span className="font-medium text-slate-900">{list.leads_new?.toLocaleString() || 0}</span>
+                                      </div>
+                                      <div className="text-xs text-slate-500">
+                                        Contactados: <span className="font-medium text-slate-900">{list.leads_contacted?.toLocaleString() || 0}</span>
+                                      </div>
+                                    </div>
+                                    <Badge
+                                      variant={
+                                        list.active === "Y"
+                                          ? "default"
+                                          : "secondary"
+                                      }
+                                    >
+                                      {list.active === "Y"
+                                        ? "Activa"
+                                        : "Inactiva"}
+                                    </Badge>
+                                    <Button
+                                      variant={selectedList?.list_id === list.list_id ? "default" : "outline"}
+                                      size="sm"
+                                      onClick={() => {
+                                        if (selectedList?.list_id === list.list_id) {
+                                          closeListLeadsModal();
+                                        } else {
+                                          fetchListLeads(list);
+                                        }
+                                      }}
+                                    >
+                                      {selectedList?.list_id === list.list_id ? "Ocultar" : "Ver Detalles"}
+                                    </Button>
+                                  </div>
+                                </div>
+
+                                {/* Accordion: Leads Panel */}
+                                {selectedList?.list_id === list.list_id && (
+                                  <div className="bg-slate-50 border-t p-4">
+                                    {loadingLeads ? (
+                                      <div className="flex justify-center items-center py-6">
+                                        <div className="text-center">
+                                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600 mx-auto mb-2"></div>
+                                          <p className="text-slate-500 text-sm">Cargando leads...</p>
+                                        </div>
+                                      </div>
+                                    ) : listLeads.length === 0 ? (
+                                      <div className="text-center py-6">
+                                        <p className="text-slate-500 text-sm">No hay leads en esta lista</p>
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <div className="max-h-[300px] overflow-auto bg-white rounded border">
+                                          <Table>
+                                            <TableHeader className="sticky top-0 bg-white">
+                                              <TableRow>
+                                                <TableHead>Teléfono</TableHead>
+                                                <TableHead>Vendor Code</TableHead>
+                                                <TableHead>Estado</TableHead>
+                                                <TableHead>Nombre</TableHead>
+                                                <TableHead>Llamadas</TableHead>
+                                                <TableHead>Última Llamada</TableHead>
+                                              </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                              {listLeads.map((lead) => (
+                                                <TableRow key={lead.lead_id}>
+                                                  <TableCell className="font-mono">{lead.phone_number}</TableCell>
+                                                  <TableCell>{lead.vendor_lead_code || "-"}</TableCell>
+                                                  <TableCell>
+                                                    <Badge className={`${getDialStatusColor(lead.status)} text-white`}>
+                                                      {lead.status || "NEW"}
+                                                    </Badge>
+                                                  </TableCell>
+                                                  <TableCell>
+                                                    {lead.first_name || lead.last_name
+                                                      ? `${lead.first_name || ""} ${lead.last_name || ""}`.trim()
+                                                      : "-"}
+                                                  </TableCell>
+                                                  <TableCell>{lead.called_count || 0}</TableCell>
+                                                  <TableCell className="text-sm text-slate-500">
+                                                    {lead.last_local_call_time || "-"}
+                                                  </TableCell>
+                                                </TableRow>
+                                              ))}
+                                            </TableBody>
+                                          </Table>
+                                        </div>
+
+                                        {/* Pagination */}
+                                        <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-200">
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            disabled={leadsOffset === 0 || loadingLeads}
+                                            onClick={() => fetchListLeads(selectedList, Math.max(0, leadsOffset - leadsLimit))}
+                                          >
+                                            Anterior
+                                          </Button>
+                                          <span className="text-sm text-slate-600">
+                                            {leadsTotal.toLocaleString()} leads - Página {Math.floor(leadsOffset / leadsLimit) + 1} de {Math.ceil(leadsTotal / leadsLimit) || 1}
+                                          </span>
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            disabled={leadsOffset + leadsLimit >= leadsTotal || loadingLeads}
+                                            onClick={() => fetchListLeads(selectedList, leadsOffset + leadsLimit)}
+                                          >
+                                            Siguiente
+                                          </Button>
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </>
                 )}
               </TabsContent>
             </div>

@@ -22,10 +22,10 @@ interface TodoListWidgetProps {
 
 type WidgetSize = "sm" | "md" | "lg" | "xl";
 
-export function TodoListWidget({ 
-  id, 
+export function TodoListWidget({
+  id,
   initialTodos = [],
-  onUpdate 
+  onUpdate
 }: TodoListWidgetProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [widgetSize, setWidgetSize] = useState<WidgetSize>("md");
@@ -37,7 +37,7 @@ export function TodoListWidget({
       if (containerRef.current) {
         const { offsetWidth, offsetHeight } = containerRef.current;
         const area = offsetWidth * offsetHeight;
-        
+
         if (area < 40000) {
           setWidgetSize("sm");
         } else if (area < 80000) {
@@ -75,13 +75,11 @@ export function TodoListWidget({
     }
   }, [id]);
 
-  // Save to localStorage
+  // Save to localStorage whenever todos change
   useEffect(() => {
-    if (todos.length > 0) {
-      localStorage.setItem(`todo-list-${id}`, JSON.stringify(todos));
-      if (onUpdate) {
-        onUpdate(id, todos);
-      }
+    localStorage.setItem(`todo-list-${id}`, JSON.stringify(todos));
+    if (onUpdate) {
+      onUpdate(id, todos);
     }
   }, [todos, id, onUpdate]);
 
@@ -149,9 +147,9 @@ export function TodoListWidget({
   const completionPercentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   return (
-    <div ref={containerRef} className="h-full">
-      <Card className="h-full flex flex-col bg-gradient-to-br from-indigo-50 to-purple-50 border-indigo-200">
-        <CardContent className={`${config.padding} flex flex-col h-full gap-3`}>
+    <div ref={containerRef} className="h-full overflow-hidden">
+      <Card className="h-full flex flex-col bg-gradient-to-br from-indigo-50 to-purple-50 border-indigo-200 overflow-hidden">
+        <CardContent className={`${config.padding} flex flex-col h-full gap-3 min-h-0 overflow-hidden`}>
           {/* Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -191,7 +189,7 @@ export function TodoListWidget({
           </div>
 
           {/* Todo List */}
-          <ScrollArea className="flex-1" style={{ maxHeight: config.maxHeight }}>
+          <ScrollArea className="flex-1 min-h-0 overflow-auto" style={{ maxHeight: config.maxHeight }}>
             {todos.length === 0 ? (
               <div className="text-center py-8 text-slate-400">
                 <Calendar className="w-8 h-8 mx-auto mb-2 opacity-50" />
@@ -202,11 +200,10 @@ export function TodoListWidget({
                 {todos.map((todo) => (
                   <div
                     key={todo.id}
-                    className={`flex items-center gap-3 p-3 rounded-lg border transition-all duration-200 ease-out ${
-                      todo.completed
-                        ? "bg-slate-100 border-slate-200"
-                        : "bg-white border-slate-200 hover:shadow-sm"
-                    }`}
+                    className={`flex items-center gap-3 p-3 rounded-lg border transition-all duration-200 ease-out ${todo.completed
+                      ? "bg-slate-100 border-slate-200"
+                      : "bg-white border-slate-200 hover:shadow-sm"
+                      }`}
                   >
                     <Checkbox
                       checked={todo.completed}
@@ -214,11 +211,10 @@ export function TodoListWidget({
                       className="flex-shrink-0"
                     />
                     <span
-                      className={`flex-1 text-sm ${
-                        todo.completed
-                          ? "line-through text-slate-400"
-                          : "text-slate-700"
-                      }`}
+                      className={`flex-1 text-sm ${todo.completed
+                        ? "line-through text-slate-400"
+                        : "text-slate-700"
+                        }`}
                     >
                       {todo.text}
                     </span>

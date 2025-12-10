@@ -29,7 +29,7 @@ echo "🔧 Iniciando servicios..."
 echo ""
 
 # Iniciar el backend en segundo plano
-echo "🖥️  Backend: http://localhost:3001"
+echo "🖥️  Backend: http://164.92.67.176:3001"
 cd server && npm run dev &
 BACKEND_PID=$!
 

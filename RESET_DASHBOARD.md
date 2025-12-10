@@ -51,8 +51,8 @@ Para cambiar las campañas que se muestran:
 3. Ejemplo:
 ```json
 {
-  "apiUrl": "http://localhost:3001/api",
-  "socketUrl": "http://localhost:3001",
+  "apiUrl": "http://164.92.67.176:3001/api",
+  "socketUrl": "http://164.92.67.176:3001",
   "vicibrokerUrl": "http://209.38.233.46:8095",
   "defaultCampaigns": ["LEGAXI01", "LEGAXI03", "CAMP03"]
 }

@@ -12,20 +12,20 @@ class ApiService {
     } catch (error) {
       console.error('[API] Error loading settings:', error);
     }
-    
+
     // Fallback to environment variable or default
     try {
       if (typeof window !== 'undefined' && (window as any).VITE_API_URL) {
         return (window as any).VITE_API_URL;
       }
-    } catch {}
-    
-    return 'http://localhost:3001/api';
+    } catch { }
+
+    return 'https://gescall.balenthi.com/api';
   }
 
   private async request(endpoint: string, options: RequestInit = {}) {
     const url = `${this.getApiUrl()}${endpoint}`;
-    
+
     const defaultOptions: RequestInit = {
       headers: {
         'Content-Type': 'application/json',
@@ -77,6 +77,14 @@ class ApiService {
     return this.request(`/lists/${listId}?delete_leads=${deleteLeads}`, {
       method: 'DELETE',
     });
+  }
+
+  async getListLeads(listId: string, limit = 100, offset = 0) {
+    return this.request(`/lists/${listId}/leads?limit=${limit}&offset=${offset}`);
+  }
+
+  async getNextListId() {
+    return this.request('/lists/next-id');
   }
 
   // Leads
@@ -143,12 +151,27 @@ class ApiService {
     });
   }
 
+  // Dashboard data endpoints (replacement for Vicibroker)
+  async getBulkCampaignsStatus(campaigns?: string[]) {
+    return this.request('/campaigns/bulk/status', {
+      method: 'POST',
+      body: JSON.stringify({ campaigns: campaigns || [] }),
+    });
+  }
+
+  async getBulkListsCount(campaigns: string[]) {
+    return this.request('/campaigns/bulk/lists-count', {
+      method: 'POST',
+      body: JSON.stringify({ campaigns }),
+    });
+  }
+
   // Agents
   async getLoggedInAgents(campaigns?: string, userGroups?: string) {
     const params = new URLSearchParams();
     if (campaigns) params.append('campaigns', campaigns);
     if (userGroups) params.append('user_groups', userGroups);
-    
+
     const query = params.toString() ? `?${params.toString()}` : '';
     return this.request(`/agents/logged-in${query}`);
   }
@@ -164,6 +187,40 @@ class ApiService {
     const baseUrl = apiUrl.replace('/api', '');
     const response = await fetch(`${baseUrl}/health`);
     return response.json();
+  }
+
+  // Audio management
+  async getAudioFiles() {
+    return this.request('/audio');
+  }
+
+  async uploadAudio(file: File, campaign: string) {
+    const formData = new FormData();
+    formData.append('audio', file);
+    formData.append('campaign', campaign);
+
+    const apiUrl = this.getApiUrl();
+    const response = await fetch(`${apiUrl}/audio/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Error al subir archivo');
+    }
+
+    return response.json();
+  }
+
+  async deleteAudio(filename: string) {
+    return this.request(`/audio/${encodeURIComponent(filename)}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getAudioInfo(filename: string) {
+    return this.request(`/audio/${encodeURIComponent(filename)}/info`);
   }
 }
 

@@ -31,8 +31,8 @@ export const getEnvVar = (key: string, fallback: string = ''): string => {
 
 // Export commonly used environment variables
 export const ENV = {
-  API_URL: getEnvVar('VITE_API_URL', 'http://localhost:3001/api'),
-  SOCKET_URL: getEnvVar('VITE_SOCKET_URL', 'http://localhost:3001'),
+  API_URL: getEnvVar('VITE_API_URL', 'https://gescall.balenthi.com/api'),
+  SOCKET_URL: getEnvVar('VITE_SOCKET_URL', 'https://gescall.balenthi.com'),
   NODE_ENV: getEnvVar('NODE_ENV', 'development'),
   MODE: getEnvVar('MODE', 'development'),
 };

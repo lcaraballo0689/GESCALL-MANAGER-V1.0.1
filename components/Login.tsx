@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { useAuthStore } from "../stores/authStore";
 import authService from "../services/authService";
+import logoChock from "./figma/logoChock.jpg";
 
 interface LoginProps {
   onLogin: (username: string) => void;
@@ -84,7 +85,7 @@ export function Login({ onLogin }: LoginProps) {
       console.log('[Login] Attempting login for user:', username);
 
       // Call the auth service
-      const session = await authService.login(username, password, true);
+      const session = await authService.login(username, password, false);
 
       console.log('[Login] Login successful, session:', session);
 
@@ -95,7 +96,7 @@ export function Login({ onLogin }: LoginProps) {
       setCredentials(username, password);
 
       // Show success message with user info
-      const fullName = session.user?.full_name || username;
+      const fullName = session.user?.name || username;
       toast.success(`${t.welcome} ${fullName}!`);
 
       // Call parent callback
@@ -166,11 +167,11 @@ export function Login({ onLogin }: LoginProps) {
       <div className="w-full lg:w-1/2 flex items-center justify-center p-4 lg:p-12 relative z-10">
         <Card className="w-full max-w-md shadow-2xl border-white/20 bg-white/95 backdrop-blur-md">
           <CardHeader className="space-y-3 text-center">
-            <div className="mx-auto w-40 h-20 flex items-center justify-center">
+            <div className="mx-auto w-48 h-24 flex items-center justify-center overflow-hidden rounded-lg">
               <ImageWithFallback
-                src="https://gescall.com/wp-content/uploads/2018/05/logo.png"
+                src={logoChock}
                 alt="GesCall Logo"
-                className="w-full h-full object-contain"
+                className="w-full h-full object-cover scale-125"
               />
             </div>
             <CardTitle className="text-slate-900">

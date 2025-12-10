@@ -248,8 +248,8 @@ TypeScript/Vite path alias configured:
 
 ### Frontend (.env)
 ```
-VITE_API_URL=http://localhost:3001/api
-VITE_SOCKET_URL=http://localhost:3001
+VITE_API_URL=http://164.92.67.176:3001/api
+VITE_SOCKET_URL=http://164.92.67.176:3001
 VITE_VICIBROKER_URL=http://209.38.233.46:8095
 ```
 
@@ -261,7 +261,7 @@ VICIDIAL_API_URL=http://your-vicidial-server/vicidial/non_agent_api.php
 VICIDIAL_API_USER=your_api_user
 VICIDIAL_API_PASS=your_api_password
 VICIDIAL_SOURCE=admin_panel
-CORS_ORIGIN=http://localhost:5173
+CORS_ORIGIN=http://164.92.67.176:5173
 ```
 
 ## Important Implementation Notes

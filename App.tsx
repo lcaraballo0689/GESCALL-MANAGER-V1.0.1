@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
+import { DndProvider } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
 import { Login } from './components/Login';
 import { DashboardLayout } from './components/DashboardLayout';
 import { Dashboard } from './components/Dashboard';
 import { Campaigns } from './components/Campaigns';
 import { Agents } from './components/Agents';
 import { Reports } from './components/Reports';
+import { AudioManager } from './components/AudioManager';
 import { Toaster } from './components/ui/sonner';
 import { useAuthStore } from './stores/authStore';
 import authService from './services/authService';
@@ -89,15 +92,17 @@ export default function App() {
       case 'reports-agents':
       case 'reports-campaigns':
         return <Reports username={username} />;
+      case 'audio':
+        return <AudioManager />;
       default:
         return <Dashboard username={username} />;
     }
   };
 
   return (
-    <>
-      <DashboardLayout 
-        username={username} 
+    <DndProvider backend={HTML5Backend}>
+      <DashboardLayout
+        username={username}
         onLogout={handleLogout}
         onNavigate={handleNavigate}
         currentPage={currentPage}
@@ -105,6 +110,6 @@ export default function App() {
         {renderPage()}
       </DashboardLayout>
       <Toaster />
-    </>
+    </DndProvider>
   );
 }

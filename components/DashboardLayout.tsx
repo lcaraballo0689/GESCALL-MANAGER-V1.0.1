@@ -19,11 +19,13 @@ import {
   X,
   Star,
   Activity,
+  Music,
 } from "lucide-react";
 import { cn } from "./ui/utils";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { UserProfileModal } from "./UserProfileModal";
 import { toast } from "sonner";
+import logoChock from "./figma/logoChock.jpg";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -49,6 +51,11 @@ const menuItems: MenuItem[] = [
     id: "campaigns",
     label: "Campañas",
     icon: PhoneCall,
+  },
+  {
+    id: "audio",
+    label: "Audios",
+    icon: Music,
   },
   //{
   //    id: "agents",
@@ -132,17 +139,22 @@ export function DashboardLayout({
       <div
         className={cn(
           "flex items-center justify-center transition-all duration-300",
-          isSidebarOpen ? "px-6 py-6" : "px-3 py-4",
+          isSidebarOpen ? "px-4 py-4" : "px-2 py-3",
         )}
       >
-        <ImageWithFallback
-          src="https://gescall.com/wp-content/uploads/2018/05/logo.png"
-          alt="GesCall Logo"
-          className={cn(
-            "object-contain transition-all duration-300",
-            isSidebarOpen ? "w-32 h-12" : "w-10 h-10",
-          )}
-        />
+        <div className={cn(
+          "overflow-hidden rounded-lg",
+          isSidebarOpen ? "w-40 h-16" : "w-14 h-14",
+        )}>
+          <ImageWithFallback
+            src={logoChock}
+            alt="GesCall Logo"
+            className={cn(
+              "object-cover transition-all duration-300 scale-125",
+              isSidebarOpen ? "w-full h-full" : "w-full h-full",
+            )}
+          />
+        </div>
       </div>
 
       <Separator />
@@ -203,14 +215,14 @@ export function DashboardLayout({
                       className={cn(
                         "p-1 rounded hover:bg-slate-200/50 transition-colors duration-200 ease-out cursor-pointer",
                         favoriteMenu === item.id &&
-                          "text-yellow-500",
+                        "text-yellow-500",
                       )}
                     >
                       <Star
                         className={cn(
                           "w-4 h-4",
                           favoriteMenu === item.id &&
-                            "fill-yellow-500",
+                          "fill-yellow-500",
                         )}
                       />
                     </div>

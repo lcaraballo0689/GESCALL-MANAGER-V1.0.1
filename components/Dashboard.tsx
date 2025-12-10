@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { UserGreeting } from "./UserGreeting";
 import { Badge } from "./ui/badge";
-import vicibroker from "@/services/vicibroker";
 import type { CampaignStatusRow, ListCountRow } from "@/services/vicibroker";
 import { useAuthStore } from "@/stores/authStore";
 import {
@@ -78,24 +77,11 @@ export function Dashboard({ username }: DashboardProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Connect to Vicibroker and fetch data
+  // Fetch dashboard data from backend API (not Vicibroker)
   useEffect(() => {
-    const fetchVicibrokerData = async () => {
+    const fetchDashboardData = async () => {
       try {
         console.log('[Dashboard] ========== STARTING DATA FETCH ==========');
-        console.log('[Dashboard] Connecting to Vicibroker...');
-        vicibroker.connect();
-
-        // Wait longer for connection to establish
-        await new Promise(resolve => setTimeout(resolve, 3000));
-
-        const isConnected = vicibroker.isConnected();
-        console.log('[Dashboard] Vicibroker connected:', isConnected);
-
-        if (!isConnected) {
-          console.warn('[Dashboard] Vicibroker not connected, queries may timeout');
-          // Don't throw error, let the queries handle connection
-        }
 
         // Get campaigns from authenticated user
         const userCampaigns = getCampaignIds();
@@ -116,34 +102,32 @@ export function Dashboard({ username }: DashboardProps) {
           return;
         }
 
-        const campaigns = userCampaigns;
-        console.log('[Dashboard] Fetching data for campaigns:', campaigns);
+        // Import api service
+        const { default: api } = await import('@/services/api');
 
-        // Fetch campaigns status
-        console.log('[Dashboard] >>> Sending campaigns_status query...');
-        const campaignsResult = await vicibroker.campaignsStatus(campaigns);
+        // Fetch campaigns status from backend
+        console.log('[Dashboard] >>> Fetching campaigns status from backend...');
+        const campaignsResult = await api.getBulkCampaignsStatus(userCampaigns);
         console.log('[Dashboard] >>> Campaigns result:', campaignsResult);
 
-        if (campaignsResult.ok && campaignsResult.rows) {
-          console.log('[Dashboard] ✓ Campaigns data received:', campaignsResult.rows.length, 'rows');
-          console.log('[Dashboard] ✓ Campaigns data:', campaignsResult.rows);
-          setCampaignsData(campaignsResult.rows);
+        if (campaignsResult.success && campaignsResult.data) {
+          console.log('[Dashboard] ✓ Campaigns data received:', campaignsResult.data.length, 'rows');
+          setCampaignsData(campaignsResult.data);
         } else {
-          console.warn('[Dashboard] ✗ No campaigns data received:', campaignsResult.error);
+          console.warn('[Dashboard] ✗ No campaigns data received');
           setCampaignsData([]);
         }
 
-        // Fetch lists count by campaign
-        console.log('[Dashboard] >>> Sending lists_count_by_campaign query...');
-        const listsResult = await vicibroker.listsCountByCampaign(campaigns);
+        // Fetch lists count by campaign from backend
+        console.log('[Dashboard] >>> Fetching lists count from backend...');
+        const listsResult = await api.getBulkListsCount(userCampaigns);
         console.log('[Dashboard] >>> Lists result:', listsResult);
 
-        if (listsResult.ok && listsResult.rows) {
-          console.log('[Dashboard] ✓ Lists data received:', listsResult.rows.length, 'rows');
-          console.log('[Dashboard] ✓ Lists data:', listsResult.rows);
-          setListsCountData(listsResult.rows);
+        if (listsResult.success && listsResult.data) {
+          console.log('[Dashboard] ✓ Lists data received:', listsResult.data.length, 'rows');
+          setListsCountData(listsResult.data);
         } else {
-          console.warn('[Dashboard] ✗ No lists data received:', listsResult.error);
+          console.warn('[Dashboard] ✗ No lists data received');
           setListsCountData([]);
         }
 
@@ -161,14 +145,13 @@ export function Dashboard({ username }: DashboardProps) {
       }
     };
 
-    fetchVicibrokerData();
+    fetchDashboardData();
 
     // Refresh data every 30 seconds
-    const interval = setInterval(fetchVicibrokerData, 30000);
+    const interval = setInterval(fetchDashboardData, 30000);
 
     return () => {
       clearInterval(interval);
-      // Don't disconnect here as other components might be using it
     };
   }, []);
 
@@ -436,22 +419,20 @@ export function Dashboard({ username }: DashboardProps) {
   const [widgets, setWidgets] = useState<WidgetState[]>(() => {
     const saved = localStorage.getItem("dashboardWidgets");
     let savedWidgets: WidgetState[] = [];
-    
+
     if (saved) {
       savedWidgets = JSON.parse(saved);
     }
-    
+
     // Lista de widgets que deben estar habilitados por defecto
+    // Solo estos 4 widgets están activos inicialmente
     const defaultEnabledWidgets = [
-      "hopper-level",
-      "auto-dial-level",
-      "active-campaigns",
-      "total-lists",
-      "total-leads",
-      "campaigns-table",
-      "lists-table"
+      "active-campaigns",  // Campañas Activas
+      "total-lists",       // Listas Totales
+      "lists-table",       // Listas por Campaña
+      "sticky-note"        // Nota Rápida
     ];
-    
+
     // Sincronizar con allWidgets - agregar nuevos widgets que no están en el estado guardado
     const syncedWidgets = allWidgets.map((w) => {
       const existingWidget = savedWidgets.find((sw) => sw.id === w.id);
@@ -465,7 +446,7 @@ export function Dashboard({ username }: DashboardProps) {
         isPaid: w.isPaid,
       };
     });
-    
+
     return syncedWidgets;
   });
 
@@ -474,16 +455,13 @@ export function Dashboard({ username }: DashboardProps) {
     if (saved) {
       return JSON.parse(saved);
     }
-    // Layout por defecto
+    // Layout por defecto - solo los 4 widgets habilitados
     return {
       lg: [
-        { i: "hopper-level", x: 0, y: 0, w: 3, h: 2 },
-        { i: "auto-dial-level", x: 3, y: 0, w: 3, h: 2 },
-        { i: "active-campaigns", x: 6, y: 0, w: 3, h: 2 },
-        { i: "total-lists", x: 9, y: 0, w: 3, h: 2 },
-        { i: "total-leads", x: 0, y: 2, w: 3, h: 2 },
-        { i: "campaigns-table", x: 0, y: 4, w: 12, h: 4 },
-        { i: "lists-table", x: 0, y: 8, w: 12, h: 4 },
+        { i: "active-campaigns", x: 0, y: 0, w: 3, h: 2 },
+        { i: "total-lists", x: 3, y: 0, w: 3, h: 2 },
+        { i: "sticky-note", x: 6, y: 0, w: 6, h: 3 },
+        { i: "lists-table", x: 0, y: 3, w: 12, h: 4 },
       ],
     };
   });
@@ -542,7 +520,7 @@ export function Dashboard({ username }: DashboardProps) {
 
   const handleUninstallWidget = (widgetId: string) => {
     const widget = allWidgets.find((w) => w.id === widgetId);
-    
+
     setWidgets((prev) =>
       prev.map((w) => (w.id === widgetId ? { ...w, enabled: false } : w))
     );
@@ -570,13 +548,10 @@ export function Dashboard({ username }: DashboardProps) {
     localStorage.removeItem("dashboardLayouts");
     setLayouts({
       lg: [
-        { i: "hopper-level", x: 0, y: 0, w: 3, h: 2 },
-        { i: "auto-dial-level", x: 3, y: 0, w: 3, h: 2 },
-        { i: "active-campaigns", x: 6, y: 0, w: 3, h: 2 },
-        { i: "total-lists", x: 9, y: 0, w: 3, h: 2 },
-        { i: "total-leads", x: 0, y: 2, w: 3, h: 2 },
-        { i: "campaigns-table", x: 0, y: 4, w: 12, h: 4 },
-        { i: "lists-table", x: 0, y: 8, w: 12, h: 4 },
+        { i: "active-campaigns", x: 0, y: 0, w: 3, h: 2 },
+        { i: "total-lists", x: 3, y: 0, w: 3, h: 2 },
+        { i: "sticky-note", x: 6, y: 0, w: 6, h: 3 },
+        { i: "lists-table", x: 0, y: 3, w: 12, h: 4 },
       ],
     });
     toast.success("Layout restablecido a valores por defecto");
@@ -585,13 +560,10 @@ export function Dashboard({ username }: DashboardProps) {
   const resetAllWidgets = () => {
     // Lista de widgets que deben estar habilitados por defecto
     const defaultEnabledWidgets = [
-      "hopper-level",
-      "auto-dial-level",
-      "active-campaigns",
-      "total-lists",
-      "total-leads",
-      "campaigns-table",
-      "lists-table"
+      "active-campaigns",  // Campañas Activas
+      "total-lists",       // Listas Totales
+      "lists-table",       // Listas por Campaña
+      "sticky-note"        // Nota Rápida
     ];
 
     localStorage.removeItem("dashboardWidgets");
@@ -787,13 +759,12 @@ export function Dashboard({ username }: DashboardProps) {
                           <td className="py-2 px-3 text-slate-900 font-mono text-xs">{campaign.campaign_id}</td>
                           <td className="py-2 px-3 text-slate-900">{campaign.campaign_name}</td>
                           <td className="py-2 px-3 text-center">
-                            <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
-                              campaign.estado === 'Activa'
-                                ? 'bg-green-100 text-green-700'
-                                : campaign.estado === 'Pausada'
+                            <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${campaign.estado === 'Activa'
+                              ? 'bg-green-100 text-green-700'
+                              : campaign.estado === 'Pausada'
                                 ? 'bg-yellow-100 text-yellow-700'
                                 : 'bg-slate-100 text-slate-700'
-                            }`}>
+                              }`}>
                               {campaign.estado || (campaign.active === 'Y' ? 'Activa' : 'Inactiva')}
                             </span>
                           </td>
@@ -848,11 +819,10 @@ export function Dashboard({ username }: DashboardProps) {
                             {(item.cantidad_listas || 0).toLocaleString()}
                           </td>
                           <td className="py-2 px-3 text-center">
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                              campaign?.estado === 'Activa' ? 'bg-green-100 text-green-700' :
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${campaign?.estado === 'Activa' ? 'bg-green-100 text-green-700' :
                               campaign?.estado === 'Pausada' ? 'bg-yellow-100 text-yellow-700' :
-                              'bg-gray-100 text-gray-700'
-                            }`}>
+                                'bg-gray-100 text-gray-700'
+                              }`}>
                               {campaign?.estado || 'N/A'}
                             </span>
                           </td>
@@ -956,99 +926,91 @@ export function Dashboard({ username }: DashboardProps) {
           <div className="flex items-center gap-4">
             <div>
               <h1 className="text-slate-900 mb-2">Dashboard</h1>
-              <p className="text-slate-600">
-                Resumen general de las operaciones del call center
-                {isEditMode && (
-                  <span className="ml-2 text-blue-600">
-                    • Modo edición activo (clic derecho para opciones)
-                  </span>
-                )}
-              </p>
             </div>
           </div>
           <div className="flex items-center gap-3 flex-shrink-0">
-                        <UserGreeting username={username} />
+            <UserGreeting username={username} />
           </div>
         </div>
 
-      {/* Info de modo edición */}
-      {isEditMode && (
-        <div className="flex-shrink-0 mb-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Edit3 className="w-5 h-5 text-blue-600" />
-            </div>
-            <div className="flex-1">
-              <p className="text-blue-900">
-                Modo de edición activado
-              </p>
-              <p className="text-blue-600 text-sm">
-                Arrastra los widgets para reorganizar, redimensiona desde las esquinas, 
-                o usa clic derecho sobre cualquier widget para más opciones
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Grid de Widgets - Scrollable Area */}
-      <div className="flex-1 overflow-auto min-h-0">
-        {enabledWidgets.length === 0 ? (
-          // Empty State
-          <div className="h-full flex items-center justify-center">
-            <div className="text-center max-w-md px-6">
-              <div className="mb-6 inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 border border-slate-300">
-                <LayoutGrid className="w-12 h-12 text-slate-400" />
+        {/* Info de modo edición */}
+        {isEditMode && (
+          <div className="flex-shrink-0 mb-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <Edit3 className="w-5 h-5 text-blue-600" />
               </div>
-              <h3 className="text-slate-700 mb-3">
-                No hay widgets activos
-              </h3>
-              <p className="text-slate-500 mb-8">
-                Agrega widgets desde el marketplace para comenzar a visualizar tus datos y métricas del call center
-              </p>
-              <button
-                onClick={() => setMarketplaceOpen(true)}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 ease-out shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40"
-              >
-                <Plus className="w-5 h-5" />
-                Explorar Widgets
-              </button>
+              <div className="flex-1">
+                <p className="text-blue-900">
+                  Modo de edición activado
+                </p>
+                <p className="text-blue-600 text-sm">
+                  Arrastra los widgets para reorganizar, redimensiona desde las esquinas,
+                  o usa clic derecho sobre cualquier widget para más opciones
+                </p>
+              </div>
             </div>
-          </div>
-        ) : (
-          // Widgets Grid
-          <div className={`pb-6 ${isEditMode ? 'edit-mode-active' : 'edit-mode-inactive'}`}>
-            <ResponsiveGridLayout
-              className="layout"
-              layouts={activeLayout}
-              breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
-              cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
-              rowHeight={80}
-              onLayoutChange={handleLayoutChange}
-              isDraggable={isEditMode}
-              isResizable={isEditMode}
-              draggableHandle={isEditMode ? undefined : ".no-drag"}
-              margin={[16, 16]}
-              containerPadding={[0, 0]}
-            >
-              {activeLayout.lg.map((item) => (
-                <div key={item.i} className="widget-container">
-                  {renderWidget(item.i)}
-                </div>
-              ))}
-            </ResponsiveGridLayout>
           </div>
         )}
-      </div>
 
-      {/* Marketplace Modal */}
-      <WidgetMarketplace
-        open={marketplaceOpen}
-        onOpenChange={setMarketplaceOpen}
-        availableWidgets={updatedWidgets}
-        onInstallWidget={handleInstallWidget}
-        onUninstallWidget={handleUninstallWidget}
-      />
+        {/* Grid de Widgets - Scrollable Area */}
+        <div className="flex-1 overflow-auto min-h-0">
+          {enabledWidgets.length === 0 ? (
+            // Empty State
+            <div className="h-full flex items-center justify-center">
+              <div className="text-center max-w-md px-6">
+                <div className="mb-6 inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 border border-slate-300">
+                  <LayoutGrid className="w-12 h-12 text-slate-400" />
+                </div>
+                <h3 className="text-slate-700 mb-3">
+                  No hay widgets activos
+                </h3>
+                <p className="text-slate-500 mb-8">
+                  Agrega widgets desde el marketplace para comenzar a visualizar tus datos y métricas del call center
+                </p>
+                <button
+                  onClick={() => setMarketplaceOpen(true)}
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 ease-out shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40"
+                >
+                  <Plus className="w-5 h-5" />
+                  Explorar Widgets
+                </button>
+              </div>
+            </div>
+          ) : (
+            // Widgets Grid
+            <div className={`pb-6 ${isEditMode ? 'edit-mode-active' : 'edit-mode-inactive'}`}>
+              <ResponsiveGridLayout
+                className="layout"
+                layouts={activeLayout}
+                breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
+                cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
+                rowHeight={80}
+                onLayoutChange={handleLayoutChange}
+                isDraggable={isEditMode}
+                isResizable={isEditMode}
+                draggableHandle={isEditMode ? undefined : ".no-drag"}
+                margin={[16, 16]}
+                containerPadding={[0, 0]}
+              >
+                {activeLayout.lg.map((item) => (
+                  <div key={item.i} className="widget-container">
+                    {renderWidget(item.i)}
+                  </div>
+                ))}
+              </ResponsiveGridLayout>
+            </div>
+          )}
+        </div>
+
+        {/* Marketplace Modal */}
+        <WidgetMarketplace
+          open={marketplaceOpen}
+          onOpenChange={setMarketplaceOpen}
+          availableWidgets={updatedWidgets}
+          onInstallWidget={handleInstallWidget}
+          onUninstallWidget={handleUninstallWidget}
+        />
       </div>
     </ContextMenu>
   );

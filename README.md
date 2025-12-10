@@ -98,7 +98,7 @@ VICIDIAL_API_USER=tu_usuario_api
 VICIDIAL_API_PASS=tu_password_api
 VICIDIAL_SOURCE=admin_panel
 
-CORS_ORIGIN=http://localhost:5173
+CORS_ORIGIN=http://164.92.67.176:5173
 ```
 
 ### 4. Volver al directorio raíz
@@ -146,9 +146,9 @@ chmod +x start.sh
 
 ## 🌐 Acceder a la Aplicación
 
-- **Frontend:** http://localhost:5173
-- **Backend API:** http://localhost:3001
-- **Backend Health Check:** http://localhost:3001/health
+- **Frontend:** http://164.92.67.176:5173
+- **Backend API:** http://164.92.67.176:3001
+- **Backend Health Check:** http://164.92.67.176:3001/health
 
 **Credenciales de prueba (mock):**
 - Usuario: `admin`

@@ -45,7 +45,7 @@ echo.
 set BACKEND_PID_FILE=%TEMP%\gescall_backend.pid
 
 :: Iniciar el backend en una nueva ventana
-echo 🖥️  Backend: http://localhost:3001
+echo 🖥️  Backend: http://164.92.67.176:3001
 start "GesCall Backend" cmd /c "cd server && npm run dev"
 
 :: Esperar un poco para que el backend inicie

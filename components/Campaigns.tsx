@@ -17,11 +17,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from './ui/tooltip';
-import { 
-  Search, 
-  LayoutGrid, 
-  List, 
-  LayoutList, 
+import {
+  Search,
+  LayoutGrid,
+  List,
+  LayoutList,
   Maximize2,
   Plus,
   RefreshCw,
@@ -315,23 +315,17 @@ export function Campaigns({ username }: CampaignsProps) {
 
   return (
     <div className="flex flex-col h-full">
-        {/* Header - Static */}
-        <div className="flex-shrink-0 mb-6">
-          <div className="flex items-center justify-between gap-8">
-            <div>
-              <h1 className="text-slate-900 mb-2">Campañas</h1>
-              <p className="text-slate-600">
-                Gestiona y monitorea todas tus campañas de Vicidial
-                <span className="ml-2 text-slate-400">
-                  • Clic derecho para más opciones
-                </span>
-              </p>
-            </div>
-            <div className="flex-shrink-0">
-              <UserGreeting username={username} />
-            </div>
+      {/* Header - Static */}
+      <div className="flex-shrink-0 mb-6">
+        <div className="flex items-center justify-between gap-8">
+          <div>
+            <h1 className="text-slate-900 mb-2">Campañas</h1>
+          </div>
+          <div className="flex-shrink-0">
+            <UserGreeting username={username} />
           </div>
         </div>
+      </div>
 
       {/* Filters and View Switcher - Static */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between flex-shrink-0 mb-6">
@@ -365,17 +359,17 @@ export function Campaigns({ username }: CampaignsProps) {
               <LayoutGrid className="w-4 h-4" />
               <span className="sr-only">Tarjetas</span>
             </TabsTrigger>
-            
+
             <TabsTrigger value="list" className="px-3" aria-label="Vista de lista">
               <List className="w-4 h-4" />
               <span className="sr-only">Lista</span>
             </TabsTrigger>
-            
+
             <TabsTrigger value="compact" className="px-3" aria-label="Vista compacta">
               <LayoutList className="w-4 h-4" />
               <span className="sr-only">Compacto</span>
             </TabsTrigger>
-            
+
             <TabsTrigger value="immersive" className="px-3" aria-label="Vista inmersiva">
               <Maximize2 className="w-4 h-4" />
               <span className="sr-only">Inmersivo</span>
