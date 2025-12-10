@@ -37,7 +37,7 @@ interface UploadWizardContentProps {
 }
 
 type Step = 1 | 2 | 3 | 4;
-type ListOption = "existing" | "new" | null;
+type ListOption = "new";
 
 export function UploadWizardContent({
   campaignName,
@@ -46,13 +46,9 @@ export function UploadWizardContent({
   onCancel,
   onSuccess,
 }: UploadWizardContentProps) {
-  // Lists state
-  const [campaignLists, setCampaignLists] = useState<any[]>([]);
-  const [loadingLists, setLoadingLists] = useState(false);
-  const [currentStep, setCurrentStep] = useState<Step>(1);
+  const [currentStep, setCurrentStep] = useState<Step>(2);
   const [listOption, setListOption] =
-    useState<ListOption>(null);
-  const [selectedList, setSelectedList] = useState("");
+    useState<ListOption>("new");
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [recordsProcessed, setRecordsProcessed] = useState(0);
@@ -65,53 +61,18 @@ export function UploadWizardContent({
     description: "",
   });
 
-  const [fileData, setFileData] = useState<{
-    file: File | null;
-    isDragging: boolean;
-  }>({
+  const [fileData, setFileData] = useState<{ file: File | null; isDragging: boolean }>({
     file: null,
     isDragging: false,
   });
 
-  // Fetch campaign lists on component mount
-  useEffect(() => {
-    const fetchLists = async () => {
-      setLoadingLists(true);
-      try {
-        const response = await api.getCampaignLists(campaignId);
-        if (response.success && response.data) {
-          setCampaignLists(response.data);
-        }
-      } catch (error) {
-        console.error("Error loading lists:", error);
-        toast.error("Error al cargar las listas");
-      } finally {
-        setLoadingLists(false);
-      }
-    };
-
-    fetchLists();
-  }, [campaignId]);
-
   const handleNext = () => {
-    if (currentStep === 1) {
-      // Validar que se seleccionó una opción
-      if (!listOption) {
-        toast.error("Selecciona un tipo de lista");
+    // Since listOption is always "new", we skip the initial validation for listOption presence.
+    // Also, step 1 is now effectively skipped by initial state, so we check for currentStep === 2
+    if (currentStep === 2) {
+      if (!newListData.listId || !newListData.name) {
+        toast.error("Completa los campos obligatorios");
         return;
-      }
-      setCurrentStep(2);
-    } else if (currentStep === 2) {
-      // Validar configuración de lista
-      if (listOption === "existing" && !selectedList) {
-        toast.error("Selecciona una lista existente");
-        return;
-      }
-      if (listOption === "new") {
-        if (!newListData.listId || !newListData.name) {
-          toast.error("Completa los campos obligatorios");
-          return;
-        }
       }
       setCurrentStep(3);
     } else if (currentStep === 3) {
@@ -120,8 +81,10 @@ export function UploadWizardContent({
   };
 
   const handleBack = () => {
-    if (currentStep > 1) {
+    if (currentStep > 2) { // Changed from 1 to 2, as step 1 is now effectively skipped
       setCurrentStep((currentStep - 1) as Step);
+    } else if (currentStep === 2) {
+      if (onCancel) onCancel(); // If on the first actual step, treat "back" as cancel
     }
   };
 
@@ -246,27 +209,23 @@ export function UploadWizardContent({
     const startTime = Date.now();
 
     try {
-      // Step 1: Create list if needed
-      let targetListId = selectedList;
+      // Step 1: Create list (always "new" now)
+      toast.info("Creando nueva lista...");
 
-      if (listOption === "new") {
-        toast.info("Creando nueva lista...");
+      const createResult = await api.createList({
+        list_id: newListData.listId,
+        list_name: newListData.name,
+        campaign_id: campaignId,
+        list_description: newListData.description,
+        active: 'Y',
+      });
 
-        const createResult = await api.createList({
-          list_id: newListData.listId,
-          list_name: newListData.name,
-          campaign_id: campaignId,
-          list_description: newListData.description,
-          active: 'Y',
-        });
-
-        if (!createResult.success) {
-          throw new Error("Error al crear la lista: " + (createResult.error || 'Error desconocido'));
-        }
-
-        targetListId = newListData.listId;
-        toast.success("Lista creada exitosamente");
+      if (!createResult.success) {
+        throw new Error("Error al crear la lista: " + (createResult.error || 'Error desconocido'));
       }
+
+      const targetListId = newListData.listId; // Always use newListData.listId
+      toast.success("Lista creada exitosamente");
 
       // Step 2: Read and parse CSV
       const text = await fileData.file.text();
@@ -301,9 +260,8 @@ export function UploadWizardContent({
           socket.off('upload:leads:complete');
 
           // Reset form
-          setCurrentStep(1);
-          setListOption(null);
-          setSelectedList("");
+          setCurrentStep(2); // Start from the first relevant step for a new upload
+          setListOption("new");
           setNewListData({
             listId: "",
             name: "",
@@ -351,8 +309,7 @@ export function UploadWizardContent({
 
   const getStepTitle = () => {
     switch (currentStep) {
-      case 1:
-        return "Tipo de Lista";
+      // Step 1 is effectively skipped, so we adjust titles for remaining steps
       case 2:
         return "Configurar Lista";
       case 3:
@@ -370,7 +327,7 @@ export function UploadWizardContent({
       <div>
         <h3 className="text-slate-900 mb-1">Cargar Leads</h3>
         <p className="text-slate-500 text-sm">
-          Paso {currentStep} de 4: {getStepTitle()}
+          Paso {currentStep - 1} de 3: {getStepTitle()} {/* Adjust step numbering for display */}
         </p>
       </div>
 
@@ -381,7 +338,7 @@ export function UploadWizardContent({
           <div
             className="h-full bg-blue-600 transition-all duration-300"
             style={{
-              width: `${((currentStep - 1) / 3) * 100}%`,
+              width: `${((currentStep - 2) / 2) * 100}%`, // Adjust progress calculation
             }}
           />
         </div>
@@ -389,7 +346,7 @@ export function UploadWizardContent({
         {/* Steps */}
         <div className="relative flex justify-between">
           {[
-            { num: 1, label: "Tipo" },
+            // Removed step 1 "Tipo"
             { num: 2, label: "Lista" },
             { num: 3, label: "Template" },
             { num: 4, label: "Archivo" },
@@ -406,7 +363,7 @@ export function UploadWizardContent({
                     : "bg-slate-200 text-slate-400",
                 )}
               >
-                {step.num}
+                {step.num - 1} {/* Adjust step number display */}
               </div>
               <span
                 className={cn(
@@ -425,210 +382,88 @@ export function UploadWizardContent({
 
       {/* Content */}
       <div className="min-h-[380px]">
-        {/* PASO 1: Seleccionar Tipo de Lista */}
-        {currentStep === 1 && (
-          <div className="space-y-4">
-            {/* Options en grid horizontal */}
-            <div className="grid grid-cols-2 gap-4">
-              <Card
-                className={cn(
-                  "cursor-pointer transition-all border-2",
-                  listOption === "existing"
-                    ? "border-blue-500 bg-blue-50/50"
-                    : "border-slate-200 hover:border-slate-300",
-                )}
-                onClick={() => {
-                  setListOption("existing");
-                  // Auto avanzar al siguiente paso
-                  setTimeout(() => setCurrentStep(2), 300);
-                }}
-              >
-                <CardContent className="p-6">
-                  <div className="flex flex-col items-center text-center gap-3">
-                    <div
-                      className={cn(
-                        "w-6 h-6 rounded-full border-2 flex items-center justify-center",
-                        listOption === "existing"
-                          ? "border-blue-600"
-                          : "border-slate-300",
-                      )}
-                    >
-                      {listOption === "existing" && (
-                        <div className="w-3 h-3 rounded-full bg-blue-600" />
-                      )}
-                    </div>
-                    <div>
-                      <h4 className="text-slate-900 mb-1">
-                        Lista Existente
-                      </h4>
-                      <p className="text-slate-500 text-sm">
-                        Agregar leads a una lista del sistema
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card
-                className={cn(
-                  "cursor-pointer transition-all border-2",
-                  listOption === "new"
-                    ? "border-blue-500 bg-blue-50/50"
-                    : "border-slate-200 hover:border-slate-300",
-                )}
-                onClick={() => {
-                  setListOption("new");
-                  // Auto avanzar al siguiente paso
-                  setTimeout(() => setCurrentStep(2), 300);
-                }}
-              >
-                <CardContent className="p-6">
-                  <div className="flex flex-col items-center text-center gap-3">
-                    <div
-                      className={cn(
-                        "w-6 h-6 rounded-full border-2 flex items-center justify-center",
-                        listOption === "new"
-                          ? "border-blue-600"
-                          : "border-slate-300",
-                      )}
-                    >
-                      {listOption === "new" && (
-                        <div className="w-3 h-3 rounded-full bg-blue-600" />
-                      )}
-                    </div>
-                    <div>
-                      <h4 className="text-slate-900 mb-1">
-                        Nueva Lista
-                      </h4>
-                      <p className="text-slate-500 text-sm">
-                        Crear una nueva lista
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        )}
-
+        {/* PASO 1: Seleccionar Tipo de Lista (This section is now effectively skipped by initial state) */}
         {/* PASO 2: Configurar Lista */}
-        {currentStep === 2 && (
+        {(currentStep === 2) && (
           <div className="space-y-4">
-            {listOption === "existing" ? (
-              <div className="pt-2">
-                <Label
-                  htmlFor="existingList"
-                  className="mb-2 block"
-                >
-                  Seleccionar Lista *
-                </Label>
-                {loadingLists ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
-                    <span className="ml-2 text-slate-500">Cargando listas...</span>
-                  </div>
-                ) : campaignLists.length === 0 ? (
-                  <div className="text-center py-8 text-slate-500">
-                    No hay listas disponibles para esta campaña
-                  </div>
-                ) : (
-                  <Select
-                    value={selectedList}
-                    onValueChange={setSelectedList}
-                  >
-                    <SelectTrigger className="bg-slate-50">
-                      <SelectValue placeholder="Elige una lista" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {campaignLists.map((list) => (
-                        <SelectItem key={list.list_id} value={list.list_id.toString()}>
-                          {list.list_name} (ID: {list.list_id}) - {list.total_leads || 0} leads
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-4 pt-2">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label
-                      htmlFor="listId"
-                      className="mb-2 block"
-                    >
-                      ID Lista *
-                    </Label>
-                    <Input
-                      id="listId"
-                      placeholder="1000100"
-                      type="number"
-                      value={newListData.listId}
-                      onChange={(e) =>
-                        setNewListData({
-                          ...newListData,
-                          listId: e.target.value,
-                        })
-                      }
-                      className="bg-slate-50"
-                    />
-                  </div>
-                  <div>
-                    <Label
-                      htmlFor="listName"
-                      className="mb-2 block"
-                    >
-                      Nombre *
-                    </Label>
-                    <Input
-                      id="listName"
-                      placeholder="Mi Lista Octubre"
-                      value={newListData.name}
-                      onChange={(e) =>
-                        setNewListData({
-                          ...newListData,
-                          name: e.target.value,
-                        })
-                      }
-                      className="bg-slate-50"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label className="mb-2 block">
-                    Campaña
-                  </Label>
-                  <Input
-                    value={campaignName}
-                    disabled
-                    className="bg-slate-100"
-                  />
-                </div>
-
+            <div className="space-y-4 pt-2">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label
-                    htmlFor="description"
+                    htmlFor="listId"
                     className="mb-2 block"
                   >
-                    Descripción (opcional)
+                    ID Lista *
                   </Label>
-                  <Textarea
-                    id="description"
-                    placeholder="Descripción breve..."
-                    value={newListData.description}
+                  <Input
+                    id="listId"
+                    placeholder="1000100"
+                    type="number"
+                    value={newListData.listId}
                     onChange={(e) =>
                       setNewListData({
                         ...newListData,
-                        description: e.target.value,
+                        listId: e.target.value,
                       })
                     }
-                    className="bg-slate-50 resize-none"
-                    rows={3}
+                    className="bg-slate-50"
+                  />
+                </div>
+                <div>
+                  <Label
+                    htmlFor="listName"
+                    className="mb-2 block"
+                  >
+                    Nombre *
+                  </Label>
+                  <Input
+                    id="listName"
+                    placeholder="Mi Lista Octubre"
+                    value={newListData.name}
+                    onChange={(e) =>
+                      setNewListData({
+                        ...newListData,
+                        name: e.target.value,
+                      })
+                    }
+                    className="bg-slate-50"
                   />
                 </div>
               </div>
-            )}
+
+              <div>
+                <Label className="mb-2 block">
+                  Campaña
+                </Label>
+                <Input
+                  value={campaignName}
+                  disabled
+                  className="bg-slate-100"
+                />
+              </div>
+
+              <div>
+                <Label
+                  htmlFor="description"
+                  className="mb-2 block"
+                >
+                  Descripción (opcional)
+                </Label>
+                <Textarea
+                  id="description"
+                  placeholder="Descripción breve..."
+                  value={newListData.description}
+                  onChange={(e) =>
+                    setNewListData({
+                      ...newListData,
+                      description: e.target.value,
+                    })
+                  }
+                  className="bg-slate-50 resize-none"
+                  rows={3}
+                />
+              </div>
+            </div>
           </div>
         )}
 
@@ -725,161 +560,4 @@ export function UploadWizardContent({
                         {fileData.file.name}
                       </p>
                       <p className="text-slate-500 text-sm">
-                        {(fileData.file.size / 1024).toFixed(1)}{" "}
-                        KB
-                      </p>
-                    </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() =>
-                      setFileData({ ...fileData, file: null })
-                    }
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
-              )}
-            </div>
-
-            {fileData.file && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                <div className="flex items-center gap-2 text-green-800">
-                  <CheckCircle2 className="w-5 h-5" />
-                  <span>Archivo listo para procesar</span>
-                </div>
-              </div>
-            )}
-
-            <div className="bg-slate-100 rounded-lg p-4">
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <span className="text-slate-500">Lista:</span>{" "}
-                  <span className="text-slate-900">
-                    {listOption === "existing"
-                      ? campaignLists.find(
-                          (l) => l.list_id.toString() === selectedList,
-                        )?.list_name
-                      : newListData.name}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-500">
-                    Campaña:
-                  </span>{" "}
-                  <span className="text-slate-900">
-                    {campaignName}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Footer */}
-      <div className="flex items-center justify-between pt-4 border-t">
-        {currentStep === 1 ? (
-          <Button
-            variant="ghost"
-            onClick={onCancel}
-            className="gap-2"
-          >
-            <X className="w-4 h-4" />
-            Cancelar
-          </Button>
-        ) : (
-          <Button
-            variant="ghost"
-            onClick={handleBack}
-            className="gap-2"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Atrás
-          </Button>
-        )}
-
-        <div className="flex gap-3">
-          {currentStep < 4 ? (
-            <Button
-              onClick={handleNext}
-              className="gap-2 bg-slate-900 hover:bg-slate-800"
-            >
-              Siguiente
-              <ArrowRight className="w-4 h-4" />
-            </Button>
-          ) : (
-            <Button
-              onClick={handleFinish}
-              className="gap-2 bg-slate-900 hover:bg-slate-800"
-              disabled={!fileData.file}
-            >
-              <Upload className="w-4 h-4" />
-              Cargar Leads
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* Loading Overlay */}
-      {isUploading && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center">
-          <Card className="w-full max-w-md mx-4">
-            <CardContent className="p-8">
-              <div className="space-y-6">
-                {/* Header */}
-                <div className="text-center">
-                  <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
-                    <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-                  </div>
-                  <h3 className="text-slate-900 mb-2">
-                    Procesando Leads
-                  </h3>
-                  <p className="text-slate-600 text-sm">
-                    Por favor espera mientras procesamos tu
-                    archivo
-                  </p>
-                </div>
-
-                {/* Progress Bar */}
-                <div className="space-y-3">
-                  <Progress
-                    value={uploadProgress}
-                    className="h-3"
-                  />
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-600">
-                      {recordsProcessed} de {totalRecords}{" "}
-                      registros
-                    </span>
-                    <span className="text-slate-900">
-                      {Math.round(uploadProgress)}%
-                    </span>
-                  </div>
-                </div>
-
-                {/* Info */}
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                    <div className="text-sm text-blue-900">
-                      <p className="mb-1">Validando datos...</p>
-                      <ul className="space-y-1 text-blue-700">
-                        <li>
-                          ✓ Verificando formato de teléfonos
-                        </li>
-                        <li>✓ Validando campos obligatorios</li>
-                        <li>✓ Eliminando duplicados</li>
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-    </div>
-  );
-}
+                        {(fileData.file.size / 1024).toFixed(1)}{
