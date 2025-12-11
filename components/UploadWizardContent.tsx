@@ -119,6 +119,7 @@ export function UploadWizardContent({
     const headers = [
       "phone_number",
       "vendor_lead_code",
+      "comments",
     ];
 
     const csvContent = headers.join(",") + "\n";
@@ -506,8 +507,8 @@ export function UploadWizardContent({
                     Campos del Template
                   </h4>
                   <p className="text-blue-700 text-sm">
-                    El archivo incluye 2 campos: phone_number y
-                    vendor_lead_code.
+                    El archivo incluye 3 campos: phone_number,
+                    vendor_lead_code y comments.
                   </p>
                 </div>
               </div>
@@ -515,8 +516,8 @@ export function UploadWizardContent({
 
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
               <p className="text-amber-800 text-sm">
-                <strong>Nota:</strong> Ambos campos son requeridos
-                para cargar los leads correctamente.
+                <strong>Nota:</strong> phone_number y vendor_lead_code son requeridos.
+                comments es opcional.
               </p>
             </div>
           </div>
