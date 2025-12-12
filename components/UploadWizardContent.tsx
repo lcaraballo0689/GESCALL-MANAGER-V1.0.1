@@ -118,6 +118,7 @@ export function UploadWizardContent({
   const handleDownloadTemplate = () => {
     const headers = [
       "phone_number",
+      "phone_code",
       "vendor_lead_code",
       "comments",
     ];
@@ -507,7 +508,7 @@ export function UploadWizardContent({
                     Campos del Template
                   </h4>
                   <p className="text-blue-700 text-sm">
-                    El archivo incluye 3 campos: phone_number,
+                    El archivo incluye 4 campos: phone_number, phone_code,
                     vendor_lead_code y comments.
                   </p>
                 </div>
@@ -516,8 +517,8 @@ export function UploadWizardContent({
 
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
               <p className="text-amber-800 text-sm">
-                <strong>Nota:</strong> phone_number y vendor_lead_code son requeridos.
-                comments es opcional.
+                <strong>Nota:</strong> phone_number es requerido. phone_code (código de país, ej: 57 para Colombia)
+                es opcional (por defecto 1). vendor_lead_code y comments son opcionales.
               </p>
             </div>
           </div>
