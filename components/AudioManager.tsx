@@ -249,9 +249,9 @@ export function AudioManager() {
 
 
     return (
-        <div className="space-y-6 p-2">
+        <div className="flex flex-col h-[calc(100vh-6rem)] gap-6 p-2">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex-none flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
                         Gestión de Audios
@@ -263,183 +263,191 @@ export function AudioManager() {
                 </Button>
             </div>
 
-            {/* Upload Zone */}
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-lg">Subir Audio para Campaña</CardTitle>
-                    <CardDescription>
-                        Selecciona la campaña y sube el archivo.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="campaign-select">Campaña</Label>
-                        <Select
-                            value={selectedCampaign}
-                            onValueChange={setSelectedCampaign}
-                        >
-                            <SelectTrigger id="campaign-select" className="w-[300px]">
-                                <SelectValue placeholder="Seleccionar campaña..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {campaigns.map((campaign) => (
-                                    <SelectItem key={campaign.id} value={campaign.id}>
-                                        {campaign.id === campaign.name ? campaign.id : `${campaign.id} - ${campaign.name}`}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <p className="text-xs text-slate-500">
-                            {selectedCampaign && `El archivo se guardará como: gc_${selectedCampaign.toLowerCase().replace(/[^a-z0-9]/g, '')}.wav`}
-                        </p>
-                    </div>
-
-                    <div
-                        className={`
-              border-2 border-dashed rounded-lg p-8 text-center transition-colors
-              ${dragActive
-                                ? "border-purple-500 bg-purple-50"
-                                : "border-slate-300 hover:border-purple-400 hover:bg-slate-50"
-                            }
-              ${uploading ? "pointer-events-none opacity-50" : "cursor-pointer"}
-            `}
-                        onDragEnter={handleDrag}
-                        onDragLeave={handleDrag}
-                        onDragOver={handleDrag}
-                        onDrop={handleDrop}
-                        onClick={() => !uploading && fileInputRef.current?.click()}
-                    >
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept=".wav,.mp3,audio/*"
-                            onChange={handleFileSelect}
-                            className="hidden"
-                        />
-
-                        {uploading ? (
-                            <div className="flex flex-col items-center gap-2">
-                                <Loader2 className="w-10 h-10 text-purple-500 animate-spin" />
-                                <p className="text-slate-600">Subiendo audio...</p>
-                            </div>
-                        ) : (
-                            <div className="flex flex-col items-center gap-2">
-                                <Upload className="w-10 h-10 text-slate-400" />
-                                <p className="text-slate-600">
-                                    Arrastra un archivo aquí o <span className="text-purple-600 font-medium">haz clic para seleccionar</span>
-                                </p>
-                                <p className="text-xs text-slate-400">
-                                    Máximo 50MB • en formato MP3 o WAV
-                                </p>
-                            </div>
-                        )}
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* Audio List */}
-            <Card>
-                <CardHeader>
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <CardTitle className="text-lg">Archivos de Audio</CardTitle>
+            <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-0">
+                {/* Upload Zone - Left Column (1/3) */}
+                <div className="lg:col-span-1 h-full">
+                    <Card className="h-full flex flex-col">
+                        <CardHeader>
+                            <CardTitle className="text-lg">Subir Audio para Campaña</CardTitle>
                             <CardDescription>
-                                {accessibleFiles.length} archivos disponibles
+                                Selecciona la campaña y sube el archivo.
                             </CardDescription>
-                        </div>
-                        <div className="relative w-64">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                            <Input
-                                placeholder="Buscar audio..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="pl-9"
-                            />
-                        </div>
-                    </div>
-                </CardHeader>
-                <CardContent>
-                    {loading ? (
-                        <div className="flex items-center justify-center py-12">
-                            <Loader2 className="w-8 h-8 text-purple-500 animate-spin" />
-                            <span className="ml-3 text-slate-500">Cargando audios...</span>
-                        </div>
-                    ) : filteredFiles.length === 0 ? (
-                        <div className="text-center py-12 text-slate-400">
-                            <FileAudio className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                            <p>No hay archivos de audio{searchTerm && " que coincidan con la búsqueda"}</p>
-                        </div>
-                    ) : (
-                        <div className="max-h-[500px] overflow-auto">
-                            <Table>
-                                <TableHeader className="sticky top-0 bg-white">
-                                    <TableRow>
-                                        <TableHead>Nombre</TableHead>
-                                        <TableHead>Tipo</TableHead>
-                                        <TableHead>Tamaño</TableHead>
-                                        <TableHead>Modificado</TableHead>
-                                        <TableHead className="text-right">Acciones</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {filteredFiles.map((file) => (
-                                        <TableRow key={file.filename}>
-                                            <TableCell className="font-medium">
-                                                <div className="flex items-center gap-2">
-                                                    <Volume2 className="w-4 h-4 text-purple-500" />
-                                                    <span className="truncate max-w-[200px]" title={file.filename}>
-                                                        {file.filename}
-                                                    </span>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Badge variant="secondary" className="uppercase">
-                                                    {file.type}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell>{formatSize(file.size)}</TableCell>
-                                            <TableCell className="text-slate-500 text-sm">
-                                                {formatDate(file.modified)}
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() =>
-                                                            playingFile === file.filename
-                                                                ? stopPlayback()
-                                                                : playAudio(file.filename)
-                                                        }
-                                                        className="text-blue-600 hover:text-blue-700"
-                                                    >
-                                                        {playingFile === file.filename ? (
-                                                            <Pause className="w-4 h-4" />
-                                                        ) : (
-                                                            <Play className="w-4 h-4" />
-                                                        )}
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() => handleDelete(file.filename)}
-                                                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </Button>
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
+                        </CardHeader>
+                        <CardContent className="space-y-4 flex-1 flex flex-col">
+                            <div className="space-y-2">
+                                <Label htmlFor="campaign-select">Campaña</Label>
+                                <Select
+                                    value={selectedCampaign}
+                                    onValueChange={setSelectedCampaign}
+                                >
+                                    <SelectTrigger id="campaign-select" className="w-full">
+                                        <SelectValue placeholder="Seleccionar campaña..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {campaigns.map((campaign) => (
+                                            <SelectItem key={campaign.id} value={campaign.id}>
+                                                {campaign.id === campaign.name ? campaign.id : `${campaign.id} - ${campaign.name}`}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                {selectedCampaign && (
+                                    <p className="text-xs text-slate-500 break-all">
+                                        Se guardará como: <span className="font-mono text-purple-600">gc_{selectedCampaign.toLowerCase().replace(/[^a-z0-9]/g, '')}.wav</span>
+                                    </p>
+                                )}
+                            </div>
+
+                            <div
+                                className={`
+                  border-2 border-dashed rounded-lg p-6 text-center transition-colors
+                  flex-1 flex flex-col justify-center items-center min-h-[200px]
+                  ${dragActive
+                                        ? "border-purple-500 bg-purple-50"
+                                        : "border-slate-300 hover:border-purple-400 hover:bg-slate-50"
+                                    }
+                  ${uploading ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                `}
+                                onDragEnter={handleDrag}
+                                onDragLeave={handleDrag}
+                                onDragOver={handleDrag}
+                                onDrop={handleDrop}
+                                onClick={() => !uploading && fileInputRef.current?.click()}
+                            >
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept=".wav,.mp3,audio/*"
+                                    onChange={handleFileSelect}
+                                    className="hidden"
+                                />
+
+                                {uploading ? (
+                                    <div className="flex flex-col items-center gap-2">
+                                        <Loader2 className="w-8 h-8 text-purple-500 animate-spin" />
+                                        <p className="text-sm text-slate-600">Subiendo...</p>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-center gap-2">
+                                        <Upload className="w-10 h-10 text-slate-400" />
+                                        <p className="text-slate-600">
+                                            Arrastra o <span className="text-purple-600 font-medium">haz clic</span>
+                                        </p>
+                                        <p className="text-xs text-slate-400">
+                                            Max 50MB • MP3/WAV
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* Audio List - Right Column (2/3) */}
+                <div className="lg:col-span-2 h-full">
+                    <Card className="h-full flex flex-col">
+                        <CardHeader>
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                <div>
+                                    <CardTitle className="text-lg">Archivos de Audio</CardTitle>
+                                    <CardDescription>
+                                        {accessibleFiles.length} archivos disponibles
+                                    </CardDescription>
+                                </div>
+                                <div className="relative w-full sm:w-64">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                    <Input
+                                        placeholder="Buscar audio..."
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        className="pl-9"
+                                    />
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="flex-1 min-h-0 flex flex-col overflow-hidden">
+                            {loading ? (
+                                <div className="flex items-center justify-center h-full">
+                                    <Loader2 className="w-8 h-8 text-purple-500 animate-spin" />
+                                    <span className="ml-3 text-slate-500">Cargando audios...</span>
+                                </div>
+                            ) : filteredFiles.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                                    <FileAudio className="w-12 h-12 mb-3 opacity-50" />
+                                    <p>No hay archivos disponibles</p>
+                                </div>
+                            ) : (
+                                <div className="rounded-md border border-slate-200 flex-1 overflow-auto">
+                                    <Table>
+                                        <TableHeader className="sticky top-0 bg-slate-50 z-10">
+                                            <TableRow>
+                                                <TableHead>Nombre</TableHead>
+                                                <TableHead className="w-[100px]">Tamaño</TableHead>
+                                                <TableHead className="w-[150px] hidden sm:table-cell">Modificado</TableHead>
+                                                <TableHead className="text-right w-[100px]">Acciones</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {filteredFiles.map((file) => (
+                                                <TableRow key={file.filename}>
+                                                    <TableCell className="font-medium">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className={`p-1.5 rounded-md ${playingFile === file.filename ? 'bg-purple-100' : 'bg-slate-100'}`}>
+                                                                <Volume2 className={`w-4 h-4 ${playingFile === file.filename ? 'text-purple-600 animate-pulse' : 'text-slate-500'}`} />
+                                                            </div>
+                                                            <div className="flex flex-col">
+                                                                <span className="truncate max-w-[150px] sm:max-w-[250px] text-sm font-medium text-slate-700" title={file.filename}>
+                                                                    {file.filename}
+                                                                </span>
+                                                                <span className="text-[10px] text-slate-400 uppercase sm:hidden">{file.type}</span>
+                                                            </div>
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell className="text-sm text-slate-600">{formatSize(file.size)}</TableCell>
+                                                    <TableCell className="text-sm text-slate-600 hidden sm:table-cell">
+                                                        {formatDate(file.modified)}
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        <div className="flex items-center justify-end gap-1">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={() =>
+                                                                    playingFile === file.filename
+                                                                        ? stopPlayback()
+                                                                        : playAudio(file.filename)
+                                                                }
+                                                                className={`h-8 w-8 ${playingFile === file.filename ? 'text-purple-600 bg-purple-50' : 'text-slate-500 hover:text-purple-600'}`}
+                                                            >
+                                                                {playingFile === file.filename ? (
+                                                                    <Pause className="w-4 h-4" />
+                                                                ) : (
+                                                                    <Play className="w-4 h-4" />
+                                                                )}
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={() => handleDelete(file.filename)}
+                                                                className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </Button>
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
+            </div>
 
             {/* Hidden audio element for playback */}
             <audio ref={audioRef} onEnded={() => setPlayingFile(null)} />
-        </div >
+        </div>
     );
 }

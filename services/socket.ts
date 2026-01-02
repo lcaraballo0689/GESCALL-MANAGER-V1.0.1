@@ -17,15 +17,19 @@ class SocketService {
     } catch (error) {
       console.error('[Socket] Error loading settings:', error);
     }
-    
+
     // Fallback to environment variable or default
     try {
       if (typeof window !== 'undefined' && (window as any).VITE_SOCKET_URL) {
         return (window as any).VITE_SOCKET_URL;
       }
-    } catch {}
+    } catch { }
 
     return 'https://gescall.balenthi.com';
+  }
+
+  get isConnected(): boolean {
+    return this.socket?.connected || false;
   }
 
   connect() {

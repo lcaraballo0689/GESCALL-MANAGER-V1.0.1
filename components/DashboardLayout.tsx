@@ -20,10 +20,16 @@ import {
   Star,
   Activity,
   Music,
+  ShieldBan,
+  ListChecks,
+  PhoneOutgoing,
+  Calendar,
 } from "lucide-react";
 import { cn } from "./ui/utils";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { UserProfileModal } from "./UserProfileModal";
+import { BackgroundTasksPanel } from "./BackgroundTasksPanel";
+import { BackgroundSocketManager } from "./BackgroundSocketManager";
 import { toast } from "sonner";
 import logoChock from "./figma/logoChock.jpg";
 
@@ -57,7 +63,27 @@ const menuItems: MenuItem[] = [
     label: "Audios",
     icon: Music,
   },
-  //{
+  {
+    id: "blacklist",
+    label: "Blacklist",
+    icon: ShieldBan,
+  },
+  {
+    id: "whitelist",
+    label: "Whitelist",
+    icon: ListChecks,
+  },
+  {
+    id: "callerid-pools",
+    label: "CallerID Pools",
+    icon: PhoneOutgoing,
+  },
+  {
+    id: "scheduler",
+    label: "Programador",
+    icon: Calendar,
+  },
+  //
   //    id: "agents",
   //    label: "Monitor de Agentes",
   //  icon: Activity,
@@ -387,6 +413,10 @@ export function DashboardLayout({
           <div className="h-full">{children}</div>
         </div>
       </main>
+
+      {/* Background Services */}
+      <BackgroundTasksPanel />
+      <BackgroundSocketManager />
 
       {/* User Profile Modal */}
       <UserProfileModal

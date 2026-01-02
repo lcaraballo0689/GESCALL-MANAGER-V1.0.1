@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import { cn } from "./ui/utils";
 import api from "@/services/api";
 import socket from "@/services/socket";
+import { useBackgroundTasks } from "@/stores/useBackgroundTasks";
 
 interface UploadWizardContentProps {
   campaignName: string;
@@ -49,10 +50,10 @@ export function UploadWizardContent({
   const [currentStep, setCurrentStep] = useState<Step>(2);
   const [listOption, setListOption] =
     useState<ListOption>("new");
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [isUploading, setIsUploading] = useState(false);
-  const [recordsProcessed, setRecordsProcessed] = useState(0);
-  const [totalRecords, setTotalRecords] = useState(0);
+  const [isStartingUpload, setIsStartingUpload] = useState(false);
+
+  // Background tasks store
+  const { addTask, updateTaskProgress, completeTask, failTask } = useBackgroundTasks();
 
   const [newListData, setNewListData] = useState({
     listId: "",
@@ -210,11 +211,7 @@ export function UploadWizardContent({
       return;
     }
 
-    setIsUploading(true);
-    setUploadProgress(0);
-    setRecordsProcessed(0);
-
-    const startTime = Date.now();
+    setIsStartingUpload(true);
 
     try {
       // Step 1: Create list (always "new" now)
@@ -232,7 +229,7 @@ export function UploadWizardContent({
         throw new Error("Error al crear la lista: " + (createResult.error || 'Error desconocido'));
       }
 
-      const targetListId = newListData.listId; // Always use newListData.listId
+      const targetListId = newListData.listId;
       toast.success("Lista creada exitosamente");
 
       // Step 2: Read and parse CSV
@@ -243,73 +240,132 @@ export function UploadWizardContent({
         throw new Error("El archivo CSV está vacío o tiene un formato inválido");
       }
 
-      setTotalRecords(leads.length);
-      toast.info(`Procesando ${leads.length} registros...`);
+      // Normalize keys to match backend expected format (snake_case)
+      // and map potential column names to required fields
+      const normalizedLeads = leads.map(lead => {
+        const keys = Object.keys(lead);
+        const normalized: any = { ...lead };
 
-      // Step 3: Connect to Socket.IO and upload leads
+        // Helper to find key case-insensitive
+        const findKey = (candidates: string[]) =>
+          keys.find(k => candidates.includes(k.toLowerCase().trim()));
+
+        // Map Phone Number (Critical)
+        const phoneKey = findKey(['phone', 'phone_number', 'telefono', 'teléfono', 'celular', 'movil', 'mobile', 'contacto', 'number']);
+        if (phoneKey) {
+          normalized.phone_number = lead[phoneKey].replace(/[^0-9]/g, '');
+        } else if (keys.length > 0) {
+          // Fallback: use first column as phone number if no match found
+          normalized.phone_number = lead[keys[0]].replace(/[^0-9]/g, '');
+        }
+
+        // Map First Name
+        const nameKey = findKey(['first_name', 'firstname', 'name', 'nombre', 'nombres']);
+        if (nameKey) {
+          normalized.first_name = lead[nameKey];
+        }
+
+        // Map Last Name
+        const lastNameKey = findKey(['last_name', 'lastname', 'surname', 'apellido', 'apellidos']);
+        if (lastNameKey) {
+          normalized.last_name = lead[lastNameKey];
+        }
+
+        return normalized;
+      });
+
+      // Filter out invalid leads (no phone number)
+      const validLeads = normalizedLeads.filter(l => l.phone_number && l.phone_number.length >= 7);
+
+      if (validLeads.length === 0) {
+        throw new Error("No se encontraron registros con números de teléfono válidos (mínimo 7 dígitos). Revisa las columnas de tu CSV.");
+      }
+
+      // Step 3: Create background task
+      const taskId = `upload-${Date.now()}`;
+
+      addTask({
+        id: taskId,
+        type: 'lead_upload',
+        title: `Cargando ${leads.length} leads`,
+        description: `Lista: ${newListData.name} • Campaña: ${campaignName}`,
+        progress: 0,
+        status: 'running',
+        metadata: {
+          campaignId,
+          campaignName,
+          listId: targetListId,
+          listName: newListData.name,
+          totalRecords: leads.length,
+          processedRecords: 0,
+        },
+      });
+
+      // Step 4: Connect to Socket.IO
       await socket.connect();
 
-      return new Promise<void>((resolve, reject) => {
-        // Listen for progress updates
-        socket.on('upload:leads:progress', (progress: any) => {
-          setRecordsProcessed(progress.processed);
-          setUploadProgress(progress.percentage);
+      // Set up socket listeners for background progress
+      const handleProgress = (progress: any) => {
+        // Filter events for this specific task
+        if (progress.processId !== taskId) return;
+        updateTaskProgress(taskId, progress.percentage, progress.processed);
+      };
+
+      const handleComplete = (result: any) => {
+        // Filter events for this specific task
+        if (result.processId !== taskId) return;
+
+        // Clean up listeners
+        socket.off('upload:leads:progress', handleProgress);
+        socket.off('upload:leads:complete', handleComplete);
+        socket.off('upload:leads:error', handleError);
+
+        // Complete the task
+        completeTask(taskId, {
+          successful: result.successful,
+          errors: result.errors,
         });
 
-        // Listen for completion
-        socket.on('upload:leads:complete', (result: any) => {
-          const endTime = Date.now();
-          const duration = ((endTime - startTime) / 1000).toFixed(1);
+        // Show success toast
+        toast.success(`¡Carga completada! ${result.successful} registros exitosos`);
 
-          setIsUploading(false);
+        // Trigger callbacks
+        if (onSuccess) onSuccess();
+      };
 
-          // Clean up socket listeners
-          socket.off('upload:leads:progress');
-          socket.off('upload:leads:complete');
+      const handleError = (error: any) => {
+        // Filter events for this specific task
+        // Note: Error events might need processId updating in backend too if generic
+        // For now assuming socket errors are connection related or specific enough
 
-          // Reset form
-          setCurrentStep(2); // Start from the first relevant step for a new upload
-          setListOption("new");
-          setNewListData({
-            listId: "",
-            name: "",
-            campaign: campaignId,
-            description: "",
-          });
-          setFileData({ file: null, isDragging: false });
-          setUploadProgress(0);
-          setRecordsProcessed(0);
-          setTotalRecords(0);
+        // Clean up listeners
+        socket.off('upload:leads:progress', handleProgress);
+        socket.off('upload:leads:complete', handleComplete);
+        socket.off('upload:leads:error', handleError);
 
-          toast.success(
-            <div>
-              <div className="mb-1">¡Carga completada exitosamente!</div>
-              <div className="text-slate-600">
-                <div>• {result.successful} registros exitosos</div>
-                {result.errors > 0 && (
-                  <div>• {result.errors} errores encontrados</div>
-                )}
-                <div>• Tiempo: {duration}s</div>
-              </div>
-            </div>,
-            { duration: 5000 },
-          );
+        // Fail the task
+        failTask(taskId, error.message || 'Error desconocido');
+        toast.error(`Error en la carga: ${error.message}`);
+      };
 
-          if (onComplete) onComplete();
-          if (onSuccess) onSuccess();
+      socket.on('upload:leads:progress', handleProgress);
+      socket.on('upload:leads:complete', handleComplete);
+      socket.on('upload:leads:error', handleError);
 
-          resolve();
-        });
-
-        // Start upload
-        socket.emit('upload:leads:start', {
-          leads,
-          list_id: targetListId,
-          campaign_id: campaignId,
-        });
+      // Start upload with processId
+      socket.emit('upload:leads:start', {
+        leads: validLeads,
+        list_id: targetListId,
+        campaign_id: campaignId,
+        processId: taskId,
       });
+
+      // Close wizard immediately - upload continues in background
+      toast.info("Carga iniciada en segundo plano. Puedes seguir trabajando.");
+      if (onComplete) onComplete();
+
     } catch (error) {
-      setIsUploading(false);
+      setIsStartingUpload(false);
       console.error("Upload error:", error);
       toast.error(error instanceof Error ? error.message : "Error al procesar el archivo");
     }
@@ -650,73 +706,17 @@ export function UploadWizardContent({
             <Button
               onClick={handleFinish}
               className="gap-2 bg-slate-900 hover:bg-slate-800"
-              disabled={!fileData.file}
+              disabled={!fileData.file || isStartingUpload}
             >
-              <Upload className="w-4 h-4" />
-              Cargar Leads
+              {isStartingUpload ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Iniciando...</>
+              ) : (
+                <><Upload className="w-4 h-4" /> Cargar Leads</>
+              )}
             </Button>
           )}
         </div>
       </div>
-
-      {/* Loading Overlay */}
-      {isUploading && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center">
-          <Card className="w-full max-w-md mx-4">
-            <CardContent className="p-8">
-              <div className="space-y-6">
-                {/* Header */}
-                <div className="text-center">
-                  <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
-                    <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-                  </div>
-                  <h3 className="text-slate-900 mb-2">
-                    Procesando Leads
-                  </h3>
-                  <p className="text-slate-600 text-sm">
-                    Por favor espera mientras procesamos tu
-                    archivo
-                  </p>
-                </div>
-
-                {/* Progress Bar */}
-                <div className="space-y-3">
-                  <Progress
-                    value={uploadProgress}
-                    className="h-3"
-                  />
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-600">
-                      {recordsProcessed} de {totalRecords} registros
-                    </span>
-                    <span className="text-slate-900">
-                      {Math.round(uploadProgress)}%
-                    </span>
-                  </div>
-                </div>
-
-                {/* Info */}
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                    <div className="text-sm text-blue-900">
-                      <p className="mb-1">Validando datos...</p>
-                      <ul className="space-y-1 text-blue-700">
-                        <li>
-                          ✓ Verificando formato de teléfonos
-                        </li>
-                        <li>✓ Validando campos obligatorios</li>
-                        <li>✓ Eliminando duplicados</li>
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
     </div>
   );
 }
-

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+// @ts-ignore
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { Login } from './components/Login';
@@ -8,6 +9,10 @@ import { Campaigns } from './components/Campaigns';
 import { Agents } from './components/Agents';
 import { Reports } from './components/Reports';
 import { AudioManager } from './components/AudioManager';
+import { BlacklistManager } from './components/BlacklistManager';
+import { WhitelistManager } from './components/WhitelistManager';
+import { CallerIDPoolsManager } from './components/CallerIDPoolsManager';
+import ScheduleCalendar from './components/ScheduleCalendar';
 import { Toaster } from './components/ui/sonner';
 import { useAuthStore } from './stores/authStore';
 import authService from './services/authService';
@@ -69,7 +74,7 @@ export default function App() {
     return (
       <>
         <Login onLogin={handleLogin} />
-        <Toaster />
+        <Toaster position="top-right" />
       </>
     );
   }
@@ -94,6 +99,14 @@ export default function App() {
         return <Reports username={username} />;
       case 'audio':
         return <AudioManager />;
+      case 'blacklist':
+        return <BlacklistManager />;
+      case 'whitelist':
+        return <WhitelistManager />;
+      case 'callerid-pools':
+        return <CallerIDPoolsManager />;
+      case 'scheduler':
+        return <ScheduleCalendar />;
       default:
         return <Dashboard username={username} />;
     }
@@ -109,7 +122,7 @@ export default function App() {
       >
         {renderPage()}
       </DashboardLayout>
-      <Toaster />
+      <Toaster position="top-right" />
     </DndProvider>
   );
 }

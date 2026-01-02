@@ -117,9 +117,25 @@ class ApiService {
   }
 
   // Campaigns
-  async getCampaigns(campaignId?: string) {
-    const query = campaignId ? `?campaign_id=${campaignId}` : '';
-    return this.request(`/campaigns${query}`);
+  async getCampaigns(params: {
+    campaignId?: string;
+    allowedCampaigns?: string[];
+  } = {}) {
+    const { campaignId, allowedCampaigns } = params;
+    const searchParams = new URLSearchParams();
+
+    if (campaignId) {
+      searchParams.append('campaign_id', campaignId);
+    }
+
+    if (allowedCampaigns && allowedCampaigns.length > 0) {
+      searchParams.append('allowed_campaigns', allowedCampaigns.join(','));
+    }
+
+    const queryString = searchParams.toString();
+    const url = queryString ? `/campaigns?${queryString}` : '/campaigns';
+
+    return this.request(url);
   }
 
   async getCampaignHopper(campaignId: string) {
@@ -133,6 +149,13 @@ class ApiService {
     });
   }
 
+  async updateListStatus(listId: string, active: 'Y' | 'N'): Promise<{ success: boolean; message?: string }> {
+    return this.request(`/lists/${listId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ active }),
+    });
+  }
+
   async getCampaignLists(campaignId: string) {
     return this.request(`/campaigns/${campaignId}/lists`);
   }
@@ -141,6 +164,36 @@ class ApiService {
     return this.request(`/campaigns/${campaignId}/dial-log`, {
       method: 'POST',
       body: JSON.stringify({ startDatetime, endDatetime, limit }),
+    });
+  }
+
+  async getCampaignCallerIdSettings(campaignId: string) {
+    return this.request(`/campaigns/${campaignId}/callerid-settings`);
+  }
+
+  async updateCampaignCallerIdSettings(campaignId: string, data: {
+    rotation_mode: string;
+    pool_id?: number | null;
+    match_mode?: string;
+    fixed_area_code?: string | null;
+    fallback_callerid?: string | null;
+    selection_strategy?: string;
+  }) {
+    return this.request(`/campaigns/${campaignId}/callerid-settings`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async startCampaign(campaignId: string) {
+    return this.request(`/campaigns/${campaignId}/start`, {
+      method: 'POST',
+    });
+  }
+
+  async stopCampaign(campaignId: string) {
+    return this.request(`/campaigns/${campaignId}/stop`, {
+      method: 'POST',
     });
   }
 
@@ -219,11 +272,229 @@ class ApiService {
     });
   }
 
+  // Blacklist / DNC
+  async getDncList(limit = 100, page = 1, search = '') {
+    return this.request(`/dnc?limit=${limit}&page=${page}&search=${search}`);
+  }
+
+  async addDncNumber(phoneNumber: string) {
+    return this.request('/dnc', {
+      method: 'POST',
+      body: JSON.stringify({ phoneNumber }),
+    });
+  }
+
+  async removeDncNumber(phoneNumber: string) {
+    return this.request(`/dnc/${phoneNumber}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async clearAllDncNumbers() {
+    return this.request('/dnc/all', {
+      method: 'DELETE',
+    });
+  }
+
+  async uploadDncFile(file: File) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const apiUrl = this.getApiUrl();
+    const response = await fetch(`${apiUrl}/dnc/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Error al subir archivo');
+    }
+
+    return response.json();
+  }
+
   async getAudioInfo(filename: string) {
     return this.request(`/audio/${encodeURIComponent(filename)}/info`);
   }
   getAudioStreamUrl(filename: string): string {
     return `${this.getApiUrl()}/audio/${filename}/stream`;
+  }
+
+  // Whitelist / Prefix API
+  async getWhitelistPrefixes(limit = 50, page = 1, search = '') {
+    return this.request(`/whitelist?limit=${limit}&page=${page}&search=${search}`);
+  }
+
+  async addWhitelistPrefix(prefix: string, description?: string) {
+    return this.request('/whitelist', {
+      method: 'POST',
+      body: JSON.stringify({ prefix, description }),
+    });
+  }
+
+  async updateWhitelistPrefix(id: number, data: { prefix?: string; description?: string; is_active?: boolean }) {
+    return this.request(`/whitelist/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteWhitelistPrefix(id: number) {
+    return this.request(`/whitelist/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async validateWhitelistNumber(phoneNumber: string) {
+    return this.request(`/whitelist/validate/${phoneNumber}`);
+  }
+
+  async applyWhitelistFilter() {
+    return this.request('/whitelist/apply', { method: 'POST' });
+  }
+
+  async clearWhitelistFilter() {
+    return this.request('/whitelist/clear-filter', { method: 'POST' });
+  }
+
+  // CallerID Pools API
+  async getCallerIdPools(limit = 50, page = 1, search = '') {
+    return this.request(`/callerid-pools?limit=${limit}&page=${page}&search=${search}`);
+  }
+
+  async getCallerIdPool(id: number) {
+    return this.request(`/callerid-pools/${id}`);
+  }
+
+  async createCallerIdPool(name: string, description?: string, country_code?: string) {
+    return this.request('/callerid-pools', {
+      method: 'POST',
+      body: JSON.stringify({ name, description, country_code }),
+    });
+  }
+
+  async updateCallerIdPool(id: number, data: { name?: string; description?: string; country_code?: string; is_active?: boolean }) {
+    return this.request(`/callerid-pools/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteCallerIdPool(id: number) {
+    return this.request(`/callerid-pools/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getPoolNumbers(poolId: number, limit = 100, page = 1, search = '') {
+    return this.request(`/callerid-pools/${poolId}/numbers?limit=${limit}&page=${page}&search=${search}`);
+  }
+
+  async getPoolAreaCodes(poolId: number) {
+    return this.request(`/callerid-pools/${poolId}/area-codes`);
+  }
+
+  async addPoolNumber(poolId: number, callerid: string) {
+    return this.request(`/callerid-pools/${poolId}/numbers`, {
+      method: 'POST',
+      body: JSON.stringify({ callerid }),
+    });
+  }
+
+  async importPoolNumbers(poolId: number, numbers: string) {
+    return this.request(`/callerid-pools/${poolId}/import`, {
+      method: 'POST',
+      body: JSON.stringify({ numbers }),
+    });
+  }
+
+  async uploadPoolNumbersFile(poolId: number, file: File) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const apiUrl = this.getApiUrl();
+    const response = await fetch(`${apiUrl}/callerid-pools/${poolId}/import`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Error al importar');
+    }
+
+    return response.json();
+  }
+
+  async deletePoolNumber(poolId: number, numberId: number) {
+    return this.request(`/callerid-pools/${poolId}/numbers/${numberId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async togglePoolNumber(poolId: number, numberId: number, isActive: boolean) {
+    return this.request(`/callerid-pools/${poolId}/numbers/${numberId}/toggle`, {
+      method: 'PUT',
+      body: JSON.stringify({ is_active: isActive }),
+    });
+  }
+
+  async getPoolLogs(poolId: number, limit = 100, offset = 0) {
+    return this.request(`/callerid-pools/${poolId}/logs?limit=${limit}&offset=${offset}`);
+  }
+
+  // Schedules
+  async getSchedules() {
+    return this.request('/schedules');
+  }
+
+  async getUpcomingSchedules(start?: string, end?: string) {
+    const params = new URLSearchParams();
+    if (start) params.append('start', start);
+    if (end) params.append('end', end);
+    return this.request(`/schedules/upcoming?${params.toString()}`);
+  }
+
+  async createSchedule(data: {
+    schedule_type: 'list' | 'campaign';
+    target_id: string;
+    target_name?: string;
+    action: 'activate' | 'deactivate';
+    scheduled_at: string;
+    end_at?: string | null;
+    recurring?: 'none' | 'daily' | 'weekly' | 'monthly';
+  }) {
+    return this.request('/schedules', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateSchedule(id: number, data: {
+    scheduled_at?: string;
+    end_at?: string | null;
+    action?: 'activate' | 'deactivate';
+    recurring?: 'none' | 'daily' | 'weekly' | 'monthly';
+  }) {
+    return this.request(`/schedules/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteSchedule(id: number) {
+    return this.request(`/schedules/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getScheduleTargetCampaigns() {
+    return this.request('/schedules/targets/campaigns');
+  }
+
+  async getScheduleTargetLists() {
+    return this.request('/schedules/targets/lists');
   }
 }
 

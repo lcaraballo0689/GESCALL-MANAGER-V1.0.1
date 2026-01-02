@@ -213,8 +213,17 @@ export function Dashboard({ username }: DashboardProps) {
 
   const avgAutoDialLevel = useMemo(() => {
     if (campaignsData.length === 0) return 0;
-    const total = campaignsData.reduce((sum, campaign) => sum + (campaign.auto_dial_level || 0), 0);
-    return Math.round(total / campaignsData.length);
+    const total = campaignsData.reduce((sum, campaign) => {
+      let level = Number(campaign.auto_dial_level) || 0;
+      // Sanitize: ignore crazy values like 1.47e+38 or negatives
+      if (level > 100 || level < 0) {
+        level = 0;
+      }
+      return sum + level;
+    }, 0);
+    // Return with 1 decimal place max
+    const avg = total / campaignsData.length;
+    return Math.round(avg * 10) / 10;
   }, [campaignsData]);
 
   // Calculate dialing level percentage based on hopper level

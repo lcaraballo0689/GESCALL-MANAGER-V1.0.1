@@ -56,6 +56,10 @@ import {
   PhoneOff,
   Calendar,
   FileSpreadsheet,
+  Play,
+  Pause,
+  Loader2,
+  Power,
 } from "lucide-react";
 import { UploadWizardContent } from "./UploadWizardContent";
 import { toast } from "sonner";
@@ -63,6 +67,7 @@ import { DateRangePicker } from 'react-date-range';
 import { es } from 'date-fns/locale';
 import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
+import { CampaignCallerIdSettings } from './CampaignCallerIdSettings';
 
 interface Campaign {
   id: string;
@@ -114,6 +119,13 @@ export function CampaignDetailsModal({
   campaign,
 }: CampaignDetailsModalProps) {
   const [activeTab, setActiveTab] = useState("reports");
+  const [campaignStatus, setCampaignStatus] = useState(campaign.status);
+  const [isToggling, setIsToggling] = useState(false);
+
+  // Sync status when campaign prop changes or modal opens
+  useEffect(() => {
+    setCampaignStatus(campaign.status);
+  }, [campaign.status, campaign.id, isOpen]);
 
   // Date filter state - default to today
   const today = new Date();
@@ -393,23 +405,80 @@ export function CampaignDetailsModal({
   // Get unique statuses and lists for filters
   const uniqueStatuses = Array.from(new Set(dialLogData.map(r => r.status))).sort();
   const uniqueLists = Array.from(new Set(dialLogData.map(r => r.list_name))).filter(Boolean).sort();
-
   // Vicidial status color mapping
   const getDialStatusColor = (status: string) => {
     // Success statuses
-    if (["SALE", "PU", "PM"].includes(status)) return "bg-green-500";
+    if (["SALE", "PU", "PM", "XFER"].includes(status)) return "bg-green-500";
     // Callback/scheduled
-    if (["CB", "CALLBK"].includes(status)) return "bg-blue-500";
+    if (["CB", "CALLBK", "CBHOLD"].includes(status)) return "bg-blue-500";
     // No answer
-    if (["NA", "AA", "N"].includes(status)) return "bg-yellow-500";
+    if (["NA", "AA", "N", "NP", "NI"].includes(status)) return "bg-yellow-500";
     // Busy/Drop
-    if (["B", "DROP", "XDROP"].includes(status)) return "bg-orange-500";
-    // DNC/Failed
-    if (["DNC", "DC", "ADC"].includes(status)) return "bg-red-500";
+    if (["B", "DROP", "XDROP", "AB", "PDROP"].includes(status)) return "bg-orange-500";
+    // DNC/Failed/Filtered
+    if (["DNC", "DC", "ADC", "DNCC", "WLFLTR", "ERI"].includes(status)) return "bg-red-500";
     // New/Pending
-    if (["NEW", "NI"].includes(status)) return "bg-slate-400";
+    if (["NEW", "QUEUE"].includes(status)) return "bg-slate-400";
+    // Voicemail/Machine
+    if (["AM", "AL", "AFAX"].includes(status)) return "bg-purple-500";
     // Default
-    return "bg-purple-500";
+    return "bg-slate-500";
+  };
+
+  // Translate Vicidial status codes to Spanish
+  const translateLeadStatus = (status: string): { label: string; description: string } => {
+    const statusMap: Record<string, { label: string; description: string }> = {
+      // Nuevos/Pendientes
+      'NEW': { label: 'Nuevo', description: 'Sin intentar' },
+      'QUEUE': { label: 'En Cola', description: 'Esperando en cola' },
+      'NI': { label: 'No Interesado', description: 'No mostró interés' },
+
+      // Éxito
+      'SALE': { label: 'Venta', description: 'Venta realizada' },
+      'PU': { label: 'Pickup', description: 'Llamada contestada' },
+      'PM': { label: 'PM', description: 'Pickup con mensaje' },
+      'XFER': { label: 'Transferido', description: 'Llamada transferida' },
+
+      // Callbacks
+      'CB': { label: 'Callback', description: 'Programado para rellamar' },
+      'CALLBK': { label: 'Callback', description: 'Callback pendiente' },
+      'CBHOLD': { label: 'CB Hold', description: 'Callback en espera' },
+
+      // Sin respuesta
+      'NA': { label: 'No Contesta', description: 'No contestó la llamada' },
+      'AA': { label: 'Auto No Contesta', description: 'Timeout automático' },
+      'N': { label: 'No Answer', description: 'Sin respuesta' },
+      'NP': { label: 'No Party', description: 'No hay persona disponible' },
+
+      // Ocupado/Drop
+      'B': { label: 'Ocupado', description: 'Línea ocupada' },
+      'AB': { label: 'Auto Ocupado', description: 'Ocupado automático' },
+      'DROP': { label: 'Cortada (Sistema)', description: 'Llamada cortada por sistema (sin agente)' },
+      'XDROP': { label: 'Cortada (Exceso)', description: 'Cortada por exceder límite de drops' },
+      'PDROP': { label: 'Perdida (Sistema)', description: 'Perdida por marcador predictivo (sin agente)' },
+
+      // Buzón/Máquina
+      'AM': { label: 'Buzón de Voz', description: 'Contestadora automática' },
+      'AL': { label: 'Buzón Largo', description: 'Mensaje largo detectado' },
+      'AFAX': { label: 'Fax', description: 'Línea de fax detectada' },
+
+      // DNC/Bloqueados
+      'DNC': { label: 'No Llamar', description: 'Solicitó no ser llamado' },
+      'DC': { label: 'Desconectado', description: 'Número desconectado' },
+      'ADC': { label: 'Auto Desc.', description: 'Desconectado automático' },
+      'DNCC': { label: 'Blacklist', description: 'En lista negra' },
+      'WLFLTR': { label: 'Filtrado', description: 'Filtrado por lista blanca' },
+      'ERI': { label: 'Error', description: 'Error en número inválido' },
+
+      // Otros
+      'A': { label: 'Contestado', description: 'Llamada contestada' },
+      'INCALL': { label: 'En Llamada', description: 'Llamada en progreso' },
+      'DEAD': { label: 'Inválido', description: 'Número inválido' },
+      'DISPO': { label: 'Disposition', description: 'Pendiente de disposición' },
+    };
+
+    const upperStatus = (status || 'NEW').toUpperCase();
+    return statusMap[upperStatus] || { label: status || 'Nuevo', description: 'Estado desconocido' };
   };
 
   const handleDownloadReport = () => {
@@ -478,20 +547,91 @@ export function CampaignDetailsModal({
     );
   };
 
+  const handleToggleCampaign = async () => {
+    setIsToggling(true);
+    try {
+      if (campaignStatus === 'active') {
+        await api.stopCampaign(campaign.id);
+        setCampaignStatus('paused');
+        toast.success(`Campaña ${campaign.name} detenida`);
+      } else {
+        await api.startCampaign(campaign.id);
+        setCampaignStatus('active');
+        toast.success(`Campaña ${campaign.name} iniciada`);
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Error al cambiar estado de campaña');
+    } finally {
+      setIsToggling(false);
+    }
+  };
+
+  const handleToggleListStatus = async (list: any) => {
+    const newStatus = list.active === 'Y' ? 'N' : 'Y';
+    // Optimistic update
+    setCampaignLists(prev => prev.map(l =>
+      l.list_id === list.list_id ? { ...l, active: newStatus } : l
+    ));
+
+    try {
+      await api.updateListStatus(list.list_id.toString(), newStatus);
+      toast.success(`Lista ${newStatus === 'Y' ? 'activada' : 'desactivada'} correctamente`);
+    } catch (error) {
+      // Revert on error
+      setCampaignLists(prev => prev.map(l =>
+        l.list_id === list.list_id ? { ...l, active: list.active } : l
+      ));
+      toast.error("Error al actualizar estado de la lista");
+      console.error(error);
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-[96vw] w-[96vw] max-h-[96vh] h-[96vh] p-0">
         {/* Header fijo */}
         <DialogHeader className="px-6 pt-6 pb-4">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <DialogTitle className="text-2xl">
-                {campaign.name}
-              </DialogTitle>
+          <div className="flex items-center justify-between">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-3">
+                <DialogTitle className="text-2xl truncate">
+                  {campaign.name}
+                </DialogTitle>
+                <Badge
+                  className={`shrink-0 ${campaignStatus === 'active'
+                    ? 'bg-green-500 hover:bg-green-600'
+                    : campaignStatus === 'paused'
+                      ? 'bg-amber-500 hover:bg-amber-600'
+                      : 'bg-slate-400 hover:bg-slate-500'
+                    } text-white`}
+                >
+                  {campaignStatus === 'active' ? 'Activa' : campaignStatus === 'paused' ? 'Pausada' : 'Inactiva'}
+                </Badge>
+              </div>
               <DialogDescription className="flex items-center gap-2 mt-2">
                 <Phone className="w-4 h-4" />
                 {campaign.dialingMethod}
               </DialogDescription>
+            </div>
+            <div className="flex items-center gap-3 ml-4 shrink-0">
+              <Button
+                variant={campaignStatus === 'active' ? 'outline' : 'default'}
+                size="default"
+                onClick={handleToggleCampaign}
+                disabled={isToggling}
+                className={`gap-2 min-w-[120px] ${campaignStatus === 'active'
+                  ? 'border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700'
+                  : 'bg-green-600 hover:bg-green-700 text-white'
+                  }`}
+              >
+                {isToggling ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : campaignStatus === 'active' ? (
+                  <><Pause className="w-4 h-4" /> Detener</>
+                ) : (
+                  <><Play className="w-4 h-4" /> Iniciar</>
+                )}
+              </Button>
             </div>
           </div>
         </DialogHeader>
@@ -505,7 +645,7 @@ export function CampaignDetailsModal({
           className="flex-1"
         >
           <div className="px-6">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="reports" className="gap-2">
                 <BarChart3 className="w-4 h-4" />
                 Reportes
@@ -513,6 +653,10 @@ export function CampaignDetailsModal({
               <TabsTrigger value="lists" className="gap-2">
                 <List className="w-4 h-4" />
                 Listas
+              </TabsTrigger>
+              <TabsTrigger value="callerid" className="gap-2">
+                <Phone className="w-4 h-4" />
+                CallerID
               </TabsTrigger>
             </TabsList>
           </div>
@@ -740,9 +884,10 @@ export function CampaignDetailsModal({
                                   </TableCell>
                                   <TableCell>
                                     <Badge
-                                      className={`${getDialStatusColor(record.status)} text-white`}
+                                      className={`${getDialStatusColor(record.status)} text-white cursor-help`}
+                                      title={translateLeadStatus(record.status).description}
                                     >
-                                      {record.status}
+                                      {translateLeadStatus(record.status).label}
                                     </Badge>
                                   </TableCell>
                                   <TableCell>
@@ -877,17 +1022,21 @@ export function CampaignDetailsModal({
                                         Contactados: <span className="font-medium text-slate-900">{list.leads_contacted?.toLocaleString() || 0}</span>
                                       </div>
                                     </div>
-                                    <Badge
-                                      variant={
-                                        list.active === "Y"
-                                          ? "default"
-                                          : "secondary"
-                                      }
+                                    <Button
+                                      variant={list.active === "Y" ? "default" : "secondary"}
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleToggleListStatus(list);
+                                      }}
+                                      className={`gap-2 h-7 ${list.active === "Y"
+                                        ? "bg-green-600 hover:bg-green-700"
+                                        : "bg-slate-200 text-slate-600 hover:bg-slate-300"
+                                        }`}
                                     >
-                                      {list.active === "Y"
-                                        ? "Activa"
-                                        : "Inactiva"}
-                                    </Badge>
+                                      <Power className="w-3 h-3" />
+                                      {list.active === "Y" ? "Activa" : "Inactiva"}
+                                    </Button>
                                     <Button
                                       variant={selectedList?.list_id === list.list_id ? "default" : "outline"}
                                       size="sm"
@@ -938,8 +1087,11 @@ export function CampaignDetailsModal({
                                                   <TableCell className="font-mono">{lead.phone_number}</TableCell>
                                                   <TableCell>{lead.vendor_lead_code || "-"}</TableCell>
                                                   <TableCell>
-                                                    <Badge className={`${getDialStatusColor(lead.status)} text-white`}>
-                                                      {lead.status || "NEW"}
+                                                    <Badge
+                                                      className={`${getDialStatusColor(lead.status)} text-white cursor-help`}
+                                                      title={translateLeadStatus(lead.status).description}
+                                                    >
+                                                      {translateLeadStatus(lead.status).label}
                                                     </Badge>
                                                   </TableCell>
                                                   <TableCell>
@@ -991,6 +1143,11 @@ export function CampaignDetailsModal({
                     </Card>
                   </>
                 )}
+              </TabsContent>
+
+              {/* Tab: CallerID */}
+              <TabsContent value="callerid" className="mt-4">
+                <CampaignCallerIdSettings campaignId={campaign.id} />
               </TabsContent>
             </div>
           </ScrollArea>

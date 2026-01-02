@@ -51,63 +51,7 @@ interface Campaign {
   lastActivity: string;
 }
 
-const mockCampaigns: Campaign[] = [
-  {
-    id: '1',
-    name: 'Ventas Q4 2025',
-    status: 'active',
-    totalLeads: 5000,
-    contactedLeads: 3420,
-    successRate: 68.2,
-    dialingMethod: 'Predictivo',
-    activeAgents: 12,
-    lastActivity: '2025-10-24T10:30:00',
-  },
-  {
-    id: '2',
-    name: 'Retención Clientes',
-    status: 'active',
-    totalLeads: 2500,
-    contactedLeads: 1890,
-    successRate: 75.6,
-    dialingMethod: 'Progresivo',
-    activeAgents: 8,
-    lastActivity: '2025-10-24T09:15:00',
-  },
-  {
-    id: '3',
-    name: 'Cobranza',
-    status: 'paused',
-    totalLeads: 3200,
-    contactedLeads: 2100,
-    successRate: 65.6,
-    dialingMethod: 'Predictivo',
-    activeAgents: 0,
-    lastActivity: '2025-10-23T18:45:00',
-  },
-  {
-    id: '4',
-    name: 'Encuestas Satisfacción',
-    status: 'active',
-    totalLeads: 1800,
-    contactedLeads: 945,
-    successRate: 52.5,
-    dialingMethod: 'Manual',
-    activeAgents: 5,
-    lastActivity: '2025-10-24T08:20:00',
-  },
-  {
-    id: '5',
-    name: 'Prospección Octubre',
-    status: 'inactive',
-    totalLeads: 4500,
-    contactedLeads: 4350,
-    successRate: 96.7,
-    dialingMethod: 'Predictivo',
-    activeAgents: 0,
-    lastActivity: '2025-10-20T17:00:00',
-  },
-];
+const mockCampaigns: Campaign[] = [];
 
 interface CampaignsProps {
   username: string;
@@ -171,7 +115,7 @@ export function Campaigns({ username }: CampaignsProps) {
         console.log('[Campaigns] Fetching data for campaigns:', campaignIds);
 
         // Fetch campaigns data from backend
-        const campaignsResponse = await api.getCampaigns();
+        const campaignsResponse = await api.getCampaigns({ allowedCampaigns: campaignIds });
 
         if (campaignsResponse.success && campaignsResponse.data) {
           console.log('[Campaigns] Data received:', campaignsResponse.data.length);
@@ -319,7 +263,7 @@ export function Campaigns({ username }: CampaignsProps) {
       <div className="flex-shrink-0 mb-6">
         <div className="flex items-center justify-between gap-8">
           <div>
-            <h1 className="text-slate-900 mb-2">Campañas</h1>
+            <h1 className="text-slate-900 mb-2">CAMPAÑAS</h1>
           </div>
           <div className="flex-shrink-0">
             <UserGreeting username={username} />
